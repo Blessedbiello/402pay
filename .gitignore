@@ -1,0 +1,74 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+*.log
+
+# Next.js
+.next
+out
+build
+dist
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Turbo
+.turbo
+
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Solana
+.anchor
+test-ledger/
+
+# Documentation (ignore all except README)
+DEPLOYMENT.md
+HACKATHON.md
+IMPLEMENTATION_SUMMARY.md
+PAYMENT_FLOW_DEMO.md
+PROJECT_SUMMARY.md
+QUICKSTART.md
+SUBSCRIPTIONS_IMPLEMENTATION.md
+SUBSCRIPTIONS_USAGE_GUIDE.md
+TEST_RESULTS.md
+claude.md
+
+# Backups
+*.backup
+
+# AI/LLM files
+.claude/
+.cursor/
+*.anthropic
+*-ai-*.md

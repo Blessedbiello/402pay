@@ -1,0 +1,28 @@
+{
+  "name": "@402pay/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP Server for 402pay - Enable AI agents to make x402 payments",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "402pay-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@402pay/sdk": "workspace:*",
+    "@402pay/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@solana/web3.js": "^1.95.8",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3",
+    "tsx": "^4.19.2"
+  }
+}

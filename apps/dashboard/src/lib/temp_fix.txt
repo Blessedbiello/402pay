@@ -1,0 +1,10 @@
+  if (isError) {
+    return (
+      <div>
+        <h3>Error loading agents</h3>
+        <p>Status: {error.statusCode}</p>
+        <p>Message: {error.message}</p>
+        {error.details ? <pre>{JSON.stringify(error.details, null, 2)}</pre> : null}
+      </div>
+    );
+  }
