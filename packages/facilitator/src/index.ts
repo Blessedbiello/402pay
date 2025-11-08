@@ -20,8 +20,15 @@ import {
   verificationRateLimiter,
 } from './middleware/rate-limit';
 import { logger } from './utils/logger';
+import { redisClient } from './utils/redis';
+import { register as metricsRegister } from './utils/metrics';
 
 dotenv.config();
+
+// Initialize Redis connection
+redisClient.connect().catch((error) => {
+  logger.error('Failed to initialize Redis', { error });
+});
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -85,13 +92,14 @@ app.get('/health', (req, res) => {
 });
 
 // Metrics endpoint (for Prometheus)
-app.get('/metrics', (req, res) => {
-  // In production, integrate with prometheus-client
-  res.json({
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    cpu: process.cpuUsage(),
-  });
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', metricsRegister.contentType);
+    res.end(await metricsRegister.metrics());
+  } catch (error) {
+    logger.error('Error generating metrics', { error });
+    res.status(500).end();
+  }
 });
 
 // Public routes with rate limiting
@@ -124,17 +132,19 @@ const server = app.listen(PORT, () => {
 });
 
 // Handle shutdown signals
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
+  server.close(async () => {
+    await redisClient.disconnect();
     logger.info('HTTP server closed');
     process.exit(0);
   });
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   logger.info('SIGINT signal received: closing HTTP server');
-  server.close(() => {
+  server.close(async () => {
+    await redisClient.disconnect();
     logger.info('HTTP server closed');
     process.exit(0);
   });

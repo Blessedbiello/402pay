@@ -19,6 +19,13 @@ import {
 } from '@402pay/shared';
 import * as nacl from 'tweetnacl';
 import bs58 from 'bs58';
+import { redisClient } from '../utils/redis';
+import { logger } from '../utils/logger';
+import {
+  recordPaymentVerification,
+  recordBlockchainRequest,
+  paymentVerificationDuration,
+} from '../utils/metrics';
 
 const router = Router();
 
@@ -27,12 +34,11 @@ const network = (process.env.SOLANA_NETWORK || 'devnet') as Network;
 const rpcUrl = process.env.SOLANA_RPC_URL || DEFAULT_RPC_ENDPOINTS[network];
 const connection = new Connection(rpcUrl, 'confirmed');
 
-// Nonce tracking to prevent replay attacks
+// Fallback in-memory nonce tracking (if Redis unavailable)
 const usedNonces = new Set<string>();
 
 // Clean up old nonces periodically (every hour)
 setInterval(() => {
-  // In production, this should be stored in Redis with TTL
   if (usedNonces.size > 10000) {
     usedNonces.clear();
   }
@@ -47,8 +53,16 @@ router.post('/', async (req, res) => {
     // Validate request body
     const proof = PaymentProof.parse(req.body);
 
+    const startTime = Date.now();
+
     // Check if nonce has been used (replay attack prevention)
-    if (usedNonces.has(proof.nonce)) {
+    // Try Redis first, fallback to in-memory
+    const nonceUsed = redisClient.isAvailable()
+      ? await redisClient.hasNonce(proof.nonce)
+      : usedNonces.has(proof.nonce);
+
+    if (nonceUsed) {
+      recordPaymentVerification('replay', proof.currency);
       return res.status(HTTP_STATUS.PAYMENT_REQUIRED).json({
         valid: false,
         error: 'Nonce has already been used',
@@ -58,6 +72,7 @@ router.post('/', async (req, res) => {
 
     // Check if payment is expired
     if (Date.now() - proof.timestamp > PAYMENT_PROOF_EXPIRY_MS) {
+      recordPaymentVerification('expired', proof.currency);
       return res.status(HTTP_STATUS.PAYMENT_REQUIRED).json({
         valid: false,
         error: 'Payment proof expired',
@@ -136,8 +151,23 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Mark nonce as used
-    usedNonces.add(proof.nonce);
+    // Mark nonce as used (in Redis or in-memory)
+    if (redisClient.isAvailable()) {
+      await redisClient.setNonce(proof.nonce, 900); // 15 minutes TTL
+    } else {
+      usedNonces.add(proof.nonce);
+    }
+
+    // Record metrics
+    const duration = (Date.now() - startTime) / 1000;
+    recordPaymentVerification('success', proof.currency, proof.amount, duration);
+
+    logger.info('Payment verified successfully', {
+      payer: proof.payer,
+      amount: proof.amount,
+      currency: proof.currency,
+      transactionId: proof.transactionId,
+    });
 
     // All checks passed
     res.json({

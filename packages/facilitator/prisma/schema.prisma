@@ -1,0 +1,165 @@
+// Prisma schema for 402pay Facilitator
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// API Keys for authentication
+model ApiKey {
+  id        String   @id @default(uuid())
+  key       String   @unique // Hashed with bcrypt
+  name      String
+  userId    String
+  environment String @default("live") // "test" or "live"
+  permissions String[] // Array of permission strings
+  lastUsed  DateTime?
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+  revoked   Boolean  @default(false)
+  metadata  Json?
+
+  @@index([userId])
+  @@index([key])
+  @@map("api_keys")
+}
+
+// Agent wallets for AI agents
+model Agent {
+  id             String   @id @default(uuid())
+  name           String
+  publicKey      String   @unique
+  owner          String
+  spendingLimitDaily        Float?
+  spendingLimitPerTransaction Float?
+  allowedServices String[] // Whitelist of endpoints
+  reputationScore           Int      @default(0)
+  transactionCount          Int      @default(0)
+  trustLevel     String   @default("new") // new, verified, trusted, premium
+  createdAt      DateTime @default(now())
+  metadata       Json?
+
+  transactions   Transaction[]
+
+  @@index([publicKey])
+  @@index([owner])
+  @@map("agents")
+}
+
+// Subscription plans
+model SubscriptionPlan {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  pricePerMonth Float
+  currency    String   @default("USDC")
+  features    String[]
+  requestsPerMonth Int?
+  requestsPerDay   Int?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  metadata    Json?
+
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+// Active subscriptions
+model Subscription {
+  id                String   @id @default(uuid())
+  planId            String
+  agentId           String
+  walletAddress     String
+  status            String   @default("active") // active, cancelled, expired, past_due
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  metadata          Json?
+
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id])
+  usageRecords UsageRecord[]
+
+  @@index([agentId])
+  @@index([walletAddress])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+// Usage records for metered billing
+model UsageRecord {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  quantity       Int
+  resource       String?
+  timestamp      DateTime @default(now())
+  metadata       Json?
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriptionId])
+  @@index([timestamp])
+  @@map("usage_records")
+}
+
+// Payment transactions
+model Transaction {
+  id            String   @id @default(uuid())
+  signature     String   @unique // Solana transaction signature
+  payer         String
+  recipient     String
+  amount        Float
+  currency      String   @default("USDC")
+  resource      String // API endpoint
+  status        String   @default("confirmed") // pending, confirmed, failed
+  nonce         String   @unique // For replay prevention
+  subscriptionId String?
+  agentId       String?
+  timestamp     DateTime @default(now())
+  metadata      Json?
+
+  agent Agent? @relation(fields: [agentId], references: [id])
+
+  @@index([payer])
+  @@index([recipient])
+  @@index([signature])
+  @@index([nonce])
+  @@index([timestamp])
+  @@map("transactions")
+}
+
+// Analytics events
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  type      String   // payment, subscription, usage, error
+  agentId   String?
+  resource  String?
+  amount    Float?
+  currency  String?
+  timestamp DateTime @default(now())
+  metadata  Json?
+
+  @@index([type])
+  @@index([agentId])
+  @@index([timestamp])
+  @@map("analytics_events")
+}
+
+// Nonce tracking for replay attack prevention
+// Using Redis for this in production, but keeping DB option
+model Nonce {
+  id        String   @id @default(uuid())
+  nonce     String   @unique
+  usedAt    DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([nonce])
+  @@index([expiresAt])
+  @@map("nonces")
+}
