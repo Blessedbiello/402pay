@@ -5,6 +5,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { verificationRouter } from './routes/verification';
 import { subscriptionRouter } from './routes/subscriptions';
@@ -13,37 +14,140 @@ import { analyticsRouter } from './routes/analytics';
 import { demoRouter } from './routes/demo';
 import { errorHandler } from './middleware/error-handler';
 import { authMiddleware } from './middleware/auth';
+import {
+  publicRateLimiter,
+  authenticatedRateLimiter,
+  verificationRateLimiter,
+} from './middleware/rate-limit';
+import { logger } from './utils/logger';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Security middleware
+app.use(helmet());
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: '402pay-facilitator' });
+// CORS configuration
+const corsOptions = {
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+  credentials: true,
+  optionsSuccessStatus: 200,
+};
+app.use(cors(corsOptions));
+
+// Body parsing middleware with size limits
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // Add request ID to request object
+  (req as any).requestId = requestId;
+
+  // Log request
+  logger.info('Incoming request', {
+    requestId,
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+  });
+
+  // Log response
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    logger.info('Request completed', {
+      requestId,
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`,
+    });
+  });
+
+  next();
 });
 
-// Public routes (no auth required)
-app.use('/verify', verificationRouter);
-app.use('/demo', demoRouter);
+// Health check (no rate limiting)
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: '402pay-facilitator',
+    version: '0.1.0',
+    timestamp: Date.now(),
+    environment: NODE_ENV,
+  });
+});
 
-// Protected routes
-app.use('/subscriptions', authMiddleware, subscriptionRouter);
-app.use('/agents', authMiddleware, agentRouter);
-app.use('/analytics', authMiddleware, analyticsRouter);
+// Metrics endpoint (for Prometheus)
+app.get('/metrics', (req, res) => {
+  // In production, integrate with prometheus-client
+  res.json({
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    cpu: process.cpuUsage(),
+  });
+});
 
-// Error handling
+// Public routes with rate limiting
+app.use('/verify', verificationRateLimiter, verificationRouter);
+app.use('/demo', publicRateLimiter, demoRouter);
+
+// Protected routes with authentication and rate limiting
+app.use('/subscriptions', authMiddleware, authenticatedRateLimiter, subscriptionRouter);
+app.use('/agents', authMiddleware, authenticatedRateLimiter, agentRouter);
+app.use('/analytics', authMiddleware, authenticatedRateLimiter, analyticsRouter);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    message: `Route ${req.method} ${req.path} not found`,
+  });
+});
+
+// Error handling (must be last)
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`🚀 402pay Facilitator running on port ${PORT}`);
-  console.log(`   Network: ${process.env.SOLANA_NETWORK || 'devnet'}`);
-  console.log(`   RPC: ${process.env.SOLANA_RPC_URL || 'default'}`);
+// Graceful shutdown
+const server = app.listen(PORT, () => {
+  logger.info(`🚀 402pay Facilitator started`, {
+    port: PORT,
+    network: process.env.SOLANA_NETWORK || 'devnet',
+    environment: NODE_ENV,
+  });
+});
+
+// Handle shutdown signals
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    logger.info('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT signal received: closing HTTP server');
+  server.close(() => {
+    logger.info('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception', { error: error.message, stack: error.stack });
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection', { reason, promise });
 });
 
 export { app };

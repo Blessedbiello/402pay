@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  facilitator:
+    build:
+      context: .
+      dockerfile: packages/facilitator/Dockerfile
+    container_name: 402pay-facilitator
+    ports:
+      - '3001:3001'
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - SOLANA_NETWORK=devnet
+      - SOLANA_RPC_URL=https://api.devnet.solana.com
+      - DATABASE_URL=postgresql://402pay:402pay@postgres:5432/402pay
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=info
+    env_file:
+      - packages/facilitator/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - 402pay-network
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: 402pay-postgres
+    environment:
+      - POSTGRES_USER=402pay
+      - POSTGRES_PASSWORD=402pay
+      - POSTGRES_DB=402pay
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - 402pay-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U 402pay']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: 402pay-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - 402pay-network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    command: redis-server --appendonly yes
+
+  demo-api:
+    build:
+      context: .
+      dockerfile: apps/demo-api/Dockerfile
+    container_name: 402pay-demo-api
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - FACILITATOR_URL=http://facilitator:3001
+      - SOLANA_NETWORK=devnet
+    env_file:
+      - apps/demo-api/.env
+    depends_on:
+      - facilitator
+    restart: unless-stopped
+    networks:
+      - 402pay-network
+
+networks:
+  402pay-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:

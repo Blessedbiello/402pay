@@ -1,0 +1,373 @@
+openapi: 3.0.3
+info:
+  title: 402pay Facilitator API
+  description: |
+    Payment verification and settlement API for the x402 protocol on Solana.
+
+    ## Authentication
+    Most endpoints require Bearer token authentication via the `Authorization` header.
+
+    ## Rate Limiting
+    - Public endpoints: 60 requests/minute
+    - Authenticated endpoints: 300 requests/minute
+    - Verification endpoint: 100 requests/minute
+  version: 0.1.0
+  contact:
+    name: 402pay Support
+    email: support@402pay.io
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001
+    description: Local development
+  - url: https://api.402pay.io
+    description: Production
+
+tags:
+  - name: Health
+    description: Health check and monitoring endpoints
+  - name: Verification
+    description: Payment proof verification
+  - name: Agents
+    description: AI agent wallet management
+  - name: Subscriptions
+    description: Subscription management
+  - name: Analytics
+    description: Analytics and reporting
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns the health status of the service
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: 402pay-facilitator
+                  version:
+                    type: string
+                    example: 0.1.0
+                  timestamp:
+                    type: number
+                    example: 1699564800000
+                  environment:
+                    type: string
+                    example: production
+
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Service metrics
+      description: Returns service metrics for monitoring
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uptime:
+                    type: number
+                  memory:
+                    type: object
+                  cpu:
+                    type: object
+
+  /verify:
+    post:
+      tags:
+        - Verification
+      summary: Verify payment proof
+      description: |
+        Verifies a payment proof for the x402 protocol.
+
+        The endpoint performs the following validations:
+        - Checks if payment proof is expired (15 minute window)
+        - Verifies the nonce hasn't been used (replay attack prevention)
+        - Validates the transaction exists on Solana blockchain
+        - Verifies the cryptographic signature
+        - Validates transaction amount matches proof
+      operationId: verifyPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentProof'
+      responses:
+        '200':
+          description: Payment verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                    example: true
+                  proof:
+                    $ref: '#/components/schemas/PaymentProof'
+                  verifiedAt:
+                    type: number
+                    example: 1699564800000
+        '402':
+          description: Payment verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Invalid request format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /agents:
+    get:
+      tags:
+        - Agents
+      summary: List agents
+      description: Returns a list of registered agent wallets
+      operationId: listAgents
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgentWallet'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - Agents
+      summary: Create agent
+      description: Register a new AI agent wallet
+      operationId: createAgent
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - publicKey
+                - owner
+              properties:
+                name:
+                  type: string
+                  example: AI Assistant Bot
+                publicKey:
+                  type: string
+                  example: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU
+                owner:
+                  type: string
+                  example: user_123
+                spendingLimit:
+                  type: object
+                  properties:
+                    daily:
+                      type: number
+                      example: 100
+                    perTransaction:
+                      type: number
+                      example: 10
+                allowedServices:
+                  type: array
+                  items:
+                    type: string
+                  example: ['/api/chat', '/api/image']
+      responses:
+        '201':
+          description: Agent created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentWallet'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /agents/{id}:
+    get:
+      tags:
+        - Agents
+      summary: Get agent
+      description: Get details of a specific agent
+      operationId: getAgent
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentWallet'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: API key authentication
+
+  schemas:
+    PaymentProof:
+      type: object
+      required:
+        - signature
+        - payer
+        - amount
+        - currency
+        - nonce
+        - timestamp
+      properties:
+        signature:
+          type: string
+          description: Ed25519 signature of the nonce
+          example: 5j7s6...
+        payer:
+          type: string
+          description: Payer's Solana public key
+          example: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU
+        amount:
+          type: number
+          minimum: 0
+          example: 0.01
+        currency:
+          type: string
+          enum: [USDC, USDT, SOL, PYUSD]
+          example: USDC
+        nonce:
+          type: string
+          description: Unique nonce to prevent replay attacks
+          example: abc123...
+        timestamp:
+          type: number
+          description: Unix timestamp when proof was created
+          example: 1699564800000
+        transactionId:
+          type: string
+          description: Solana transaction signature
+          example: 2j3k4l5m6n...
+
+    AgentWallet:
+      type: object
+      properties:
+        id:
+          type: string
+          example: agent_123
+        name:
+          type: string
+          example: AI Assistant Bot
+        publicKey:
+          type: string
+          example: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU
+        owner:
+          type: string
+          example: user_123
+        spendingLimit:
+          type: object
+          properties:
+            daily:
+              type: number
+            perTransaction:
+              type: number
+        allowedServices:
+          type: array
+          items:
+            type: string
+        reputation:
+          type: object
+          properties:
+            score:
+              type: number
+              minimum: 0
+              maximum: 1000
+            transactionCount:
+              type: number
+            trustLevel:
+              type: string
+              enum: [new, verified, trusted, premium]
+        createdAt:
+          type: number
+
+    Error:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Payment proof expired
+        code:
+          type: string
+          example: PAYMENT_EXPIRED
+        details:
+          type: object
+
+  responses:
+    UnauthorizedError:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    BadRequestError:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
