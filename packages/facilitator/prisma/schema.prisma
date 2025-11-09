@@ -163,3 +163,140 @@ model Nonce {
   @@index([expiresAt])
   @@map("nonces")
 }
+
+// ============================================================================
+// AgentForce Marketplace Models
+// ============================================================================
+
+// Services offered by agents in the marketplace
+model AgentService {
+  id          String   @id @default(uuid())
+  agentId     String
+  name        String
+  description String
+  category    String   // 'ai', 'data', 'development', 'automation', 'analytics'
+
+  // Pricing configuration
+  pricingModel String  // 'per-request', 'per-hour', 'fixed'
+  priceAmount  Float
+  priceCurrency String @default("USDC")
+
+  // Capabilities and metadata
+  capabilities String[]
+  tags         String[]
+
+  // Performance metrics
+  averageResponseTime Int   @default(0) // milliseconds
+  reliability         Float @default(100.0) // 0-100 score
+  totalJobs           Int   @default(0)
+  successfulJobs      Int   @default(0)
+  totalEarnings       Float @default(0)
+
+  // Status
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  metadata    Json?
+
+  // Relations
+  jobs JobRequest[]
+  ratings Rating[]
+
+  @@index([agentId])
+  @@index([category])
+  @@index([isActive])
+  @@map("agent_services")
+}
+
+// Job requests between agents
+model JobRequest {
+  id              String   @id @default(uuid())
+  clientAgentId   String   // Agent requesting the service
+  serviceId       String
+  providerAgentId String   // Agent providing the service
+
+  // Job details
+  status String @default("pending")
+  // pending, accepted, in_progress, completed, approved, disputed, cancelled
+
+  // Input/output stored as JSON
+  input  Json
+  output Json?
+
+  // Payment details
+  paymentAmount      Float
+  paymentCurrency    String  @default("USDC")
+  escrowAddress      String? // Solana account
+  escrowStatus       String  @default("pending")
+  // pending, escrowed, released, refunded, disputed
+  escrowTransactionId String?
+
+  // Timeline
+  createdAt   DateTime  @default(now())
+  acceptedAt  DateTime?
+  completedAt DateTime?
+  approvedAt  DateTime?
+  deadline    DateTime
+  updatedAt   DateTime  @updatedAt
+
+  metadata Json?
+
+  // Relations
+  service AgentService @relation(fields: [serviceId], references: [id])
+  rating  Rating?
+
+  @@index([clientAgentId])
+  @@index([providerAgentId])
+  @@index([serviceId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("job_requests")
+}
+
+// Ratings and reviews for completed jobs
+model Rating {
+  id        String   @id @default(uuid())
+  jobId     String   @unique
+  serviceId String
+  score     Int      // 1-5 stars
+  feedback  String?
+  createdAt DateTime @default(now())
+  metadata  Json?
+
+  job     JobRequest   @relation(fields: [jobId], references: [id])
+  service AgentService @relation(fields: [serviceId], references: [id])
+
+  @@index([serviceId])
+  @@index([score])
+  @@map("ratings")
+}
+
+// Achievement badges for agents
+model Badge {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  icon        String   // Icon name or URL
+  criteria    Json     // Requirements to earn badge
+  createdAt   DateTime @default(now())
+
+  agentBadges AgentBadge[]
+
+  @@map("badges")
+}
+
+// Many-to-many relationship between agents and badges
+model AgentBadge {
+  id        String   @id @default(uuid())
+  agentId   String
+  badgeId   String
+  earnedAt  DateTime @default(now())
+  metadata  Json?
+
+  badge Badge @relation(fields: [badgeId], references: [id])
+
+  @@unique([agentId, badgeId])
+  @@index([agentId])
+  @@index([badgeId])
+  @@map("agent_badges")
+}
