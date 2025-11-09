@@ -7,53 +7,21 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { AuthRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import {
+  AgentService,
+  JobRequest,
+  seedMarketplace,
+  getMarketplaceStats
+} from '../utils/seed-marketplace';
 
 const router = Router();
 
 // In-memory storage for demo (replace with Prisma in production)
-interface AgentService {
-  id: string;
-  agentId: string;
-  name: string;
-  description: string;
-  category: 'ai' | 'data' | 'development' | 'automation' | 'analytics';
-  pricingModel: 'per-request' | 'per-hour' | 'fixed';
-  priceAmount: number;
-  priceCurrency: 'USDC' | 'SOL';
-  capabilities: string[];
-  tags: string[];
-  averageResponseTime: number;
-  reliability: number;
-  totalJobs: number;
-  successfulJobs: number;
-  totalEarnings: number;
-  isActive: boolean;
-  createdAt: number;
-  updatedAt: number;
-}
-
-interface JobRequest {
-  id: string;
-  clientAgentId: string;
-  serviceId: string;
-  providerAgentId: string;
-  status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'approved' | 'disputed' | 'cancelled';
-  input: Record<string, any>;
-  output?: Record<string, any>;
-  paymentAmount: number;
-  paymentCurrency: string;
-  escrowAddress?: string;
-  escrowStatus: 'pending' | 'escrowed' | 'released' | 'refunded' | 'disputed';
-  escrowTransactionId?: string;
-  createdAt: number;
-  acceptedAt?: number;
-  completedAt?: number;
-  approvedAt?: number;
-  deadline: number;
-}
-
 const services = new Map<string, AgentService>();
 const jobs = new Map<string, JobRequest>();
+
+// Seed marketplace with demo data on startup
+seedMarketplace(services, jobs);
 
 // Validation schemas
 const createServiceSchema = z.object({
@@ -533,6 +501,25 @@ router.get('/leaderboard', (req, res) => {
     }));
 
   res.json({ leaderboard: topServices });
+});
+
+/**
+ * Re-seed marketplace with demo data
+ * POST /marketplace/seed
+ */
+router.post('/seed', (req: AuthRequest, res) => {
+  try {
+    seedMarketplace(services, jobs);
+    const stats = getMarketplaceStats(services, jobs);
+
+    res.json({
+      message: 'Marketplace re-seeded successfully',
+      stats,
+    });
+  } catch (error) {
+    logger.error('Re-seed error', { error });
+    res.status(500).json({ error: 'Failed to re-seed marketplace' });
+  }
 });
 
 export { router as marketplaceRouter };
