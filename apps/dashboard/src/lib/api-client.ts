@@ -463,3 +463,90 @@ export interface AgentReputation {
 export async function getAgentReputation(id: string): Promise<AgentReputation> {
   return apiFetch<AgentReputation>(`/agents/${id}/reputation`);
 }
+
+// ============================================================================
+// API Keys Management
+// ============================================================================
+
+export interface ApiKeyListItem {
+  userId: string;
+  name: string;
+  lastUsed: number;
+  keyPrefix: string;
+}
+
+export interface ApiKeysResponse {
+  apiKeys: ApiKeyListItem[];
+  total: number;
+}
+
+/**
+ * List all API keys for the current user
+ * GET /api-keys
+ */
+export async function listApiKeys(): Promise<ApiKeysResponse> {
+  return apiFetch<ApiKeysResponse>('/api-keys');
+}
+
+export interface CreateApiKeyData {
+  name: string;
+  permissions?: string[];
+}
+
+export interface CreateApiKeyResponse {
+  apiKey: string;
+  name: string;
+  userId: string;
+  permissions: string[];
+  createdAt: number;
+  message: string;
+}
+
+/**
+ * Create a new API key
+ * POST /api-keys
+ */
+export async function createApiKey(
+  data: CreateApiKeyData
+): Promise<CreateApiKeyResponse> {
+  return apiFetch<CreateApiKeyResponse>('/api-keys', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export interface RevokeApiKeyResponse {
+  message: string;
+  keyPrefix: string;
+}
+
+/**
+ * Revoke an API key
+ * DELETE /api-keys/:keyPrefix
+ */
+export async function revokeApiKey(
+  keyPrefix: string
+): Promise<RevokeApiKeyResponse> {
+  return apiFetch<RevokeApiKeyResponse>(`/api-keys/${keyPrefix}`, {
+    method: 'DELETE',
+  });
+}
+
+export interface RotateApiKeyResponse {
+  apiKey: string;
+  name: string;
+  message: string;
+  warning: string;
+}
+
+/**
+ * Rotate an API key (create new and keep old)
+ * POST /api-keys/:keyPrefix/rotate
+ */
+export async function rotateApiKey(
+  keyPrefix: string
+): Promise<RotateApiKeyResponse> {
+  return apiFetch<RotateApiKeyResponse>(`/api-keys/${keyPrefix}/rotate`, {
+    method: 'POST',
+  });
+}

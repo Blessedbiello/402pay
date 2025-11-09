@@ -12,6 +12,7 @@ import { subscriptionRouter } from './routes/subscriptions';
 import { agentRouter } from './routes/agents';
 import { analyticsRouter } from './routes/analytics';
 import { demoRouter } from './routes/demo';
+import { apiKeysRouter } from './routes/api-keys';
 import { errorHandler } from './middleware/error-handler';
 import { authMiddleware } from './middleware/auth';
 import {
@@ -110,6 +111,7 @@ app.use('/demo', publicRateLimiter, demoRouter);
 app.use('/subscriptions', authMiddleware, authenticatedRateLimiter, subscriptionRouter);
 app.use('/agents', authMiddleware, authenticatedRateLimiter, agentRouter);
 app.use('/analytics', authMiddleware, authenticatedRateLimiter, analyticsRouter);
+app.use('/api-keys', authMiddleware, authenticatedRateLimiter, apiKeysRouter);
 
 // 404 handler
 app.use((req, res) => {
