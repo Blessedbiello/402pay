@@ -1,6 +1,18 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
 interface RevenueBreakdown {
   date: string; // ISO date string
@@ -12,6 +24,8 @@ interface RevenueChartProps {
   data: RevenueBreakdown[];
 }
 
+type ChartType = 'bar' | 'area';
+
 /**
  * Format date to short day name (Mon, Tue, etc.)
  */
@@ -20,14 +34,47 @@ function formatDayLabel(dateString: string): string {
   return date.toLocaleDateString('en-US', { weekday: 'short' });
 }
 
-export default function RevenueChart({ data }: RevenueChartProps) {
-  // Calculate max revenue for scaling
-  const maxRevenue = useMemo(() => {
-    if (!data.length) return 0;
-    return Math.max(...data.map((d) => d.amount));
-  }, [data]);
+/**
+ * Custom tooltip component
+ */
+function CustomTooltip({ active, payload }: any) {
+  if (!active || !payload || !payload.length) return null;
 
-  // Transform data for display
+  const data = payload[0].payload;
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
+      <p className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
+        {data.fullDate}
+      </p>
+      <div className="space-y-1 text-sm">
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-gray-600 dark:text-gray-400">Revenue:</span>
+          <span className="font-semibold text-primary-600 dark:text-primary-400">
+            ${data.revenue.toFixed(2)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-gray-600 dark:text-gray-400">Transactions:</span>
+          <span className="font-medium text-gray-900 dark:text-gray-100">
+            {data.transactionCount}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-gray-600 dark:text-gray-400">Avg per TX:</span>
+          <span className="font-medium text-gray-900 dark:text-gray-100">
+            ${data.transactionCount > 0 ? (data.revenue / data.transactionCount).toFixed(2) : '0.00'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function RevenueChart({ data }: RevenueChartProps) {
+  const [chartType, setChartType] = useState<ChartType>('bar');
+
+  // Transform data for Recharts
   const chartData = useMemo(() => {
     return data.map((item) => ({
       label: formatDayLabel(item.date),
@@ -36,9 +83,16 @@ export default function RevenueChart({ data }: RevenueChartProps) {
       fullDate: new Date(item.date).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
+        year: 'numeric',
       }),
     }));
   }, [data]);
+
+  // Calculate totals
+  const totals = useMemo(() => ({
+    revenue: data.reduce((sum, d) => sum + d.amount, 0),
+    transactions: data.reduce((sum, d) => sum + d.transactionCount, 0),
+  }), [data]);
 
   // Handle empty state
   if (!chartData.length) {
@@ -51,69 +105,113 @@ export default function RevenueChart({ data }: RevenueChartProps) {
 
   return (
     <div className="space-y-4">
-      {/* Simple bar chart */}
-      <div className="flex items-end justify-between h-64 gap-4">
-        {chartData.map((item, index) => {
-          // Calculate bar height as percentage of max
-          const heightPercentage =
-            maxRevenue > 0 ? (item.revenue / maxRevenue) * 100 : 0;
-          const barHeight = (heightPercentage / 100) * 240; // 240px max height
-
-          return (
-            <div
-              key={index}
-              className="flex-1 flex flex-col items-center gap-2 group relative"
-            >
-              {/* Tooltip on hover */}
-              <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
-                <div className="font-semibold">{item.fullDate}</div>
-                <div>${item.revenue.toFixed(2)}</div>
-                <div className="text-gray-300 dark:text-gray-400">
-                  {item.transactionCount}{' '}
-                  {item.transactionCount === 1 ? 'transaction' : 'transactions'}
-                </div>
-              </div>
-
-              {/* Bar container */}
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-t-lg relative flex items-end justify-center h-full">
-                <div
-                  className="w-full bg-primary-500 dark:bg-primary-600 rounded-t-lg transition-all hover:bg-primary-600 dark:hover:bg-primary-500 relative"
-                  style={{
-                    height: `${barHeight}px`,
-                    minHeight: item.revenue > 0 ? '4px' : '0px',
-                  }}
-                >
-                  {/* Value label above bar */}
-                  {item.revenue > 0 && (
-                    <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700 dark:text-gray-300">
-                      ${item.revenue.toFixed(2)}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Day label */}
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                {item.label}
-              </span>
-            </div>
-          );
-        })}
+      {/* Chart type selector */}
+      <div className="flex items-center justify-end gap-2">
+        <button
+          onClick={() => setChartType('bar')}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            chartType === 'bar'
+              ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+        >
+          Bar Chart
+        </button>
+        <button
+          onClick={() => setChartType('area')}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            chartType === 'area'
+              ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+        >
+          Area Chart
+        </button>
       </div>
 
-      {/* Legend */}
+      {/* Chart */}
+      <ResponsiveContainer width="100%" height={300}>
+        {chartType === 'bar' ? (
+          <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+            <XAxis
+              dataKey="label"
+              className="text-gray-600 dark:text-gray-400"
+              tick={{ fill: 'currentColor', fontSize: 12 }}
+            />
+            <YAxis
+              className="text-gray-600 dark:text-gray-400"
+              tick={{ fill: 'currentColor', fontSize: 12 }}
+              tickFormatter={(value) => `$${value}`}
+            />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }} />
+            <Bar
+              dataKey="revenue"
+              fill="rgb(59, 130, 246)"
+              radius={[6, 6, 0, 0]}
+              animationDuration={800}
+              animationBegin={0}
+            />
+          </BarChart>
+        ) : (
+          <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <defs>
+              <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="rgb(59, 130, 246)" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="rgb(59, 130, 246)" stopOpacity={0.1} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+            <XAxis
+              dataKey="label"
+              className="text-gray-600 dark:text-gray-400"
+              tick={{ fill: 'currentColor', fontSize: 12 }}
+            />
+            <YAxis
+              className="text-gray-600 dark:text-gray-400"
+              tick={{ fill: 'currentColor', fontSize: 12 }}
+              tickFormatter={(value) => `$${value}`}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Area
+              type="monotone"
+              dataKey="revenue"
+              stroke="rgb(59, 130, 246)"
+              strokeWidth={2}
+              fill="url(#colorRevenue)"
+              animationDuration={800}
+              animationBegin={0}
+            />
+          </AreaChart>
+        )}
+      </ResponsiveContainer>
+
+      {/* Stats Summary */}
       <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <div>
-          <span className="font-medium">
-            Total: ${data.reduce((sum, d) => sum + d.amount, 0).toFixed(2)}
-          </span>
-          <span className="mx-2">•</span>
-          <span>
-            {data.reduce((sum, d) => sum + d.transactionCount, 0)} transactions
-          </span>
+        <div className="flex items-center gap-4">
+          <div>
+            <span className="text-gray-500 dark:text-gray-400">Total Revenue:</span>
+            <span className="ml-2 font-semibold text-gray-900 dark:text-gray-100">
+              ${totals.revenue.toFixed(2)}
+            </span>
+          </div>
+          <div className="h-4 w-px bg-gray-300 dark:bg-gray-600"></div>
+          <div>
+            <span className="text-gray-500 dark:text-gray-400">Transactions:</span>
+            <span className="ml-2 font-semibold text-gray-900 dark:text-gray-100">
+              {totals.transactions.toLocaleString()}
+            </span>
+          </div>
+          <div className="h-4 w-px bg-gray-300 dark:bg-gray-600"></div>
+          <div>
+            <span className="text-gray-500 dark:text-gray-400">Avg per TX:</span>
+            <span className="ml-2 font-semibold text-gray-900 dark:text-gray-100">
+              ${totals.transactions > 0 ? (totals.revenue / totals.transactions).toFixed(2) : '0.00'}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-primary-500 dark:bg-primary-600 rounded"></div>
+          <div className="w-3 h-3 bg-primary-500 rounded"></div>
           <span>Revenue (USDC)</span>
         </div>
       </div>
