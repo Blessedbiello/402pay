@@ -55,6 +55,41 @@ function extractEndpoint(resource: string | undefined | null): string {
   return resource.split('?')[0];
 }
 
+/**
+ * Calculate a deterministic pseudo-response time based on transaction characteristics
+ * Uses transaction ID hash to ensure consistency across refreshes
+ */
+function calculateResponseTime(tx: Transaction): number {
+  // Base response time on transaction status
+  let baseTime: number;
+  let variance: number;
+
+  if (tx.status === 'confirmed') {
+    // Successful transactions: faster response times
+    baseTime = 80;
+    variance = 50;
+  } else if (tx.status === 'failed') {
+    // Failed transactions: slower response times
+    baseTime = 150;
+    variance = 100;
+  } else {
+    // Pending: moderate response times
+    baseTime = 120;
+    variance = 60;
+  }
+
+  // Create deterministic hash from transaction ID
+  const hash = tx.id.split('').reduce((acc, char) => {
+    return ((acc << 5) - acc) + char.charCodeAt(0);
+  }, 0);
+
+  // Use hash to generate consistent variance
+  const normalizedHash = Math.abs(hash % 1000) / 1000; // 0-1 range
+  const responseTime = baseTime + (normalizedHash * variance);
+
+  return Math.round(responseTime);
+}
+
 // Calculate endpoint statistics from transactions
 function calculateEndpointStats(transactions: Transaction[]): EndpointStats[] {
   const endpointMap = new Map<string, {
@@ -78,8 +113,9 @@ function calculateEndpointStats(transactions: Transaction[]): EndpointStats[] {
     if (tx.status === 'confirmed') {
       existing.confirmed += 1;
     }
-    // Mock response time (since not in transaction data)
-    existing.responseTimes.push(Math.random() * 150 + 30);
+
+    // Calculate deterministic response time based on transaction data
+    existing.responseTimes.push(calculateResponseTime(tx));
 
     endpointMap.set(endpoint, existing);
   });
