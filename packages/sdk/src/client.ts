@@ -22,6 +22,7 @@ import {
 } from '@402pay/shared';
 import { SubscriptionManager } from './subscriptions';
 import { AgentManager } from './agents';
+import { EscrowManager } from './escrow';
 
 export interface SolPay402Config {
   apiKey: string;
@@ -36,9 +37,10 @@ export class SolPay402 {
   private connection: Connection;
   private facilitatorUrl: string;
 
-  // Public manager instances for subscriptions and agents
+  // Public manager instances for subscriptions, agents, and escrow
   public subscriptions: SubscriptionManager;
   public agents: AgentManager;
+  public escrow: EscrowManager;
 
   constructor(config: SolPay402Config) {
     this.apiKey = config.apiKey;
@@ -51,6 +53,7 @@ export class SolPay402 {
     // Initialize managers
     this.subscriptions = new SubscriptionManager(this, this.facilitatorUrl, this.apiKey);
     this.agents = new AgentManager(this, this.facilitatorUrl, this.apiKey);
+    this.escrow = new EscrowManager(this, this.facilitatorUrl, this.apiKey);
   }
 
   /**

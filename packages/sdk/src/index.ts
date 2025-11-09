@@ -7,6 +7,12 @@ export { SolPay402, type SolPay402Config } from './client';
 export { createPaymentMiddleware, type MiddlewareConfig } from './middleware';
 export { SubscriptionManager, type CreateSubscriptionParams, type RecordUsageParams } from './subscriptions';
 export { AgentManager, type CreateAgentParams, type AgentReputation } from './agents';
+export {
+  EscrowManager,
+  type EscrowAccount,
+  type CreateEscrowParams,
+  type ReleaseEscrowParams,
+} from './escrow';
 
 // Re-export shared types for convenience
 export * from '@402pay/shared';
