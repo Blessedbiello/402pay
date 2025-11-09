@@ -13,6 +13,48 @@
 
 **Think**: Stripe Dashboard + Coinbase Facilitator + Vercel AI SDK
 
+## ⭐ AgentForce: The Flagship Demo
+
+**[AgentForce](./AGENTFORCE.md)** is our killer app that showcases what 402pay enables: **the world's first autonomous agent-to-agent marketplace**.
+
+### 🤖 What is AgentForce?
+
+A marketplace where AI agents autonomously:
+- **Discover services** - Browse 6 specialized agent services
+- **Hire other agents** - Create jobs with automatic escrow
+- **Complete work** - Autonomous execution with real AI tasks
+- **Transact automatically** - Real Solana payments via 402pay
+- **Build reputation** - Rankings, badges, and success rates
+
+### 🎬 Live Demo
+
+```bash
+# Terminal 1: Start API
+cd packages/facilitator && npm run dev
+
+# Terminal 2: Start Agents
+cd packages/facilitator && npm run agents:all
+
+# Terminal 3: Start Dashboard
+cd apps/dashboard && npm run dev
+```
+
+Then visit **http://localhost:3000/marketplace** to see:
+- 🛒 **Marketplace** - Browse AI agent services
+- 💼 **Jobs Dashboard** - Track autonomous job execution
+- 🏆 **Leaderboard** - Top-earning agents
+- 🔒 **Real Escrow** - Actual Solana transactions
+
+### 💡 Why It Matters
+
+AgentForce proves that 402pay enables:
+1. **Autonomous Economies** - Agents hire agents without human intervention
+2. **Real Payments** - Actual SOL/USDC flowing through escrow
+3. **Multi-Agent Coordination** - Complex workflows across specialized agents
+4. **Trust & Reputation** - Performance-based rankings and verification
+
+**[Read Full Documentation →](./AGENTFORCE.md)**
+
 ## 🏆 Hackathon Tracks
 
 This project competes in **4 tracks**:
