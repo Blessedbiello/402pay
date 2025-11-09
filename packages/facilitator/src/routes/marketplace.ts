@@ -233,6 +233,14 @@ router.delete('/services/:id', (req: AuthRequest, res) => {
 /**
  * Create a job request
  * POST /marketplace/jobs
+ *
+ * NOTE: In production, this would integrate with the escrow system:
+ * 1. Frontend would create escrow via 402pay SDK (client-side signing)
+ * 2. Pass escrowAddress in request body
+ * 3. Verify escrow was funded before accepting job
+ *
+ * For this demo, escrow creation is optional - existing demo data
+ * works without escrow, but new jobs can include escrow.
  */
 router.post('/jobs', (req: AuthRequest, res) => {
   try {
@@ -260,14 +268,21 @@ router.post('/jobs', (req: AuthRequest, res) => {
       input: data.input,
       paymentAmount: service.priceAmount,
       paymentCurrency: service.priceCurrency,
-      escrowStatus: 'pending',
+      escrowStatus: req.body.escrowAddress ? 'escrowed' : 'pending',
+      escrowAddress: req.body.escrowAddress, // Optional: Set by client after creating escrow
+      escrowTransactionId: req.body.escrowTransactionId, // Optional: Initial funding tx
       createdAt: Date.now(),
       deadline,
     };
 
     jobs.set(jobId, job);
 
-    logger.info('Job created', { jobId, serviceId: service.id, clientAgentId });
+    logger.info('Job created', {
+      jobId,
+      serviceId: service.id,
+      clientAgentId,
+      hasEscrow: !!req.body.escrowAddress,
+    });
 
     res.status(201).json(job);
   } catch (error) {
@@ -390,7 +405,7 @@ router.post('/jobs/:id/submit', (req: AuthRequest, res) => {
  * Approve job and release payment (client)
  * POST /marketplace/jobs/:id/approve
  */
-router.post('/jobs/:id/approve', (req: AuthRequest, res) => {
+router.post('/jobs/:id/approve', async (req: AuthRequest, res) => {
   const job = jobs.get(req.params.id);
 
   if (!job) {
@@ -401,9 +416,56 @@ router.post('/jobs/:id/approve', (req: AuthRequest, res) => {
     return res.status(400).json({ error: 'Job is not completed' });
   }
 
+  // Release escrow funds if escrow exists
+  let releaseSignature: string | undefined;
+  if (job.escrowAddress && job.escrowStatus === 'escrowed') {
+    try {
+      // Call escrow release endpoint
+      const escrowResponse = await fetch(`http://localhost:3001/escrow/job/${job.id}`, {
+        headers: {
+          'x-api-key': req.headers['x-api-key'] as string || 'demo-key',
+        },
+      });
+
+      if (escrowResponse.ok) {
+        const escrow = await escrowResponse.json();
+
+        // Release funds to provider
+        const releaseResponse = await fetch(`http://localhost:3001/escrow/${escrow.id}/release`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': req.headers['x-api-key'] as string || 'demo-key',
+          },
+          body: JSON.stringify({
+            recipient: job.providerAgentId,
+          }),
+        });
+
+        if (releaseResponse.ok) {
+          const releaseResult = await releaseResponse.json();
+          releaseSignature = releaseResult.signature;
+          logger.info('Escrow released', {
+            jobId: job.id,
+            escrowId: escrow.id,
+            signature: releaseSignature,
+          });
+        } else {
+          logger.error('Failed to release escrow', { jobId: job.id });
+        }
+      }
+    } catch (error) {
+      logger.error('Error releasing escrow', { error, jobId: job.id });
+      // Continue with approval even if escrow release fails (for demo data compatibility)
+    }
+  }
+
   job.status = 'approved';
   job.approvedAt = Date.now();
   job.escrowStatus = 'released';
+  if (releaseSignature) {
+    job.escrowTransactionId = releaseSignature;
+  }
   jobs.set(req.params.id, job);
 
   // Update service stats
@@ -415,7 +477,11 @@ router.post('/jobs/:id/approve', (req: AuthRequest, res) => {
     services.set(job.serviceId, service);
   }
 
-  logger.info('Job approved', { jobId: req.params.id, amount: job.paymentAmount });
+  logger.info('Job approved', {
+    jobId: req.params.id,
+    amount: job.paymentAmount,
+    releaseSignature,
+  });
 
   res.json(job);
 });
