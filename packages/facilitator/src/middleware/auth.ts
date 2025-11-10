@@ -25,6 +25,16 @@ VALID_API_KEYS.forEach((key, index) => {
   });
 });
 
+// Add demo-key for development/testing
+if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' || !process.env.NODE_ENV) {
+  API_KEYS_CACHE.set('demo-key', {
+    hash: 'demo-key',
+    userId: 'demo-user',
+    name: 'Demo API Key',
+    lastUsed: Date.now(),
+  });
+}
+
 export interface AuthRequest extends Request {
   userId?: string;
   apiKey?: string;
@@ -40,16 +50,24 @@ export async function authMiddleware(
   next: NextFunction
 ) {
   try {
+    // Support both Bearer token and x-api-key header for demo compatibility
     const authHeader = req.headers.authorization;
+    const xApiKey = req.headers['x-api-key'] as string;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    let apiKey: string | undefined;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      apiKey = authHeader.substring(7); // Remove 'Bearer '
+    } else if (xApiKey) {
+      apiKey = xApiKey;
+    }
+
+    if (!apiKey) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         error: 'Missing or invalid authorization header',
         code: ERROR_CODES.INVALID_API_KEY,
       });
     }
-
-    const apiKey = authHeader.substring(7); // Remove 'Bearer '
 
     // Check if API key exists in cache
     const cachedKey = API_KEYS_CACHE.get(apiKey);

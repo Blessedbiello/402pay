@@ -2,16 +2,15 @@
  * Cryptographic utilities for secure API key handling
  */
 
-import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 
-const SALT_ROUNDS = 12; // Industry standard for bcrypt
-
 /**
- * Hash an API key using bcrypt
+ * Hash an API key using PBKDF2 (demo - use bcrypt in production)
  */
 export async function hashApiKey(apiKey: string): Promise<string> {
-  return bcrypt.hash(apiKey, SALT_ROUNDS);
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(apiKey, salt, 100000, 64, 'sha512').toString('hex');
+  return `${salt}:${hash}`;
 }
 
 /**
@@ -20,9 +19,13 @@ export async function hashApiKey(apiKey: string): Promise<string> {
  */
 export async function verifyApiKey(apiKey: string, hash: string): Promise<boolean> {
   try {
-    return await bcrypt.compare(apiKey, hash);
+    const [salt, originalHash] = hash.split(':');
+    if (!salt || !originalHash) return false;
+
+    const testHash = crypto.pbkdf2Sync(apiKey, salt, 100000, 64, 'sha512').toString('hex');
+    return constantTimeCompare(testHash, originalHash);
   } catch (error) {
-    // Invalid hash format or other bcrypt error
+    // Invalid hash format or other error
     return false;
   }
 }
