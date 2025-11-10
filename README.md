@@ -55,13 +55,7 @@ AgentForce proves that 402pay enables:
 
 **[Read Full Documentation →](./AGENTFORCE.md)**
 
-## 🏆 Hackathon Tracks
-
-This project competes in **4 tracks**:
-1. **SDKs, Libraries, Frameworks** ($10K) - TypeScript/Rust SDKs
-2. **MCP Servers** ($10K) - AI agent payment integration
-3. **Agent Payments** ($10K) - Agent-to-agent infrastructure
-4. **Applications** (Gradient) - Production dashboard
+---
 
 ## 🚀 Quick Start
 
@@ -214,50 +208,41 @@ VALID_API_KEYS=test_key_1,test_key_2
 
 ## 🎯 Roadmap
 
-### Phase 1: Core Infrastructure ✅
-- [x] Monorepo setup
-- [x] Shared types package
-- [x] TypeScript SDK
-- [x] Facilitator backend
+### Core Infrastructure ✅
+- [x] Monorepo setup with pnpm workspaces
+- [x] Shared types package with Zod schemas
+- [x] TypeScript SDK with full API coverage
+- [x] Facilitator backend with verification engine
+- [x] AgentForce marketplace demo
 
-### Phase 2: Advanced Features (In Progress)
-- [ ] Next.js dashboard
-- [ ] MCP server integration
-- [ ] Demo application
-- [ ] Solana settlement engine
+### Advanced Features (In Progress)
+- [x] Production Next.js dashboard
+- [x] MCP server for AI agent integration
+- [x] Autonomous agent workers
+- [x] Real Solana escrow payments
+- [ ] Subscription management UI
+- [ ] Analytics and reporting dashboard
 
-### Phase 3: Polish & Launch
-- [ ] Documentation
-- [ ] Video tutorials
-- [ ] Test coverage
-- [ ] Production deployment
+### Enterprise Features (Planned)
+- [ ] Multi-tenant organization support
+- [ ] Advanced analytics and insights
+- [ ] Custom webhook integrations
+- [ ] White-label dashboard options
+- [ ] Enterprise SLAs and support
 
-## 🏆 Why 402pay Wins
+## 💼 Use Cases
 
-### Functionality (30%)
-- ✅ Working demo with real verification
-- ✅ Multi-track coverage
-- ✅ Production-ready architecture
+### API Monetization
+Turn any API into a revenue stream with per-request pricing, subscriptions, or usage-based billing.
 
-### Potential Impact (30%)
-- ✅ Ecosystem enabler for all x402 projects
-- ✅ Solana-first optimization
-- ✅ Market: Every API/SaaS can use this
+### AI Agent Commerce
+Enable AI agents to autonomously discover, hire, and pay for services from other agents.
 
-### Novelty (20%)
-- ✅ First unified x402 platform
-- ✅ Stripe-like UX
-- ✅ Agent reputation system
+### Micro-Transactions
+Accept payments as low as fractions of a cent without worrying about transaction fees.
 
-### Design/UX (10%)
-- ✅ Clean SDK API
-- ✅ Excellent developer experience
-- ✅ Beautiful dashboard (coming)
-
-### Composability (10%)
-- ✅ Integrates MCP, x402, Solana
-- ✅ Open source
-- ✅ Standard compliant
+### Content Paywalls
+Monetize premium content with instant, frictionless payments.
 
 ## 📄 License
 
