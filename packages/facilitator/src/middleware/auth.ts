@@ -25,15 +25,13 @@ VALID_API_KEYS.forEach((key, index) => {
   });
 });
 
-// Add demo-key for development/testing
-if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' || !process.env.NODE_ENV) {
-  API_KEYS_CACHE.set('demo-key', {
-    hash: 'demo-key',
-    userId: 'demo-user',
-    name: 'Demo API Key',
-    lastUsed: Date.now(),
-  });
-}
+// Add demo-key for demo/development (always available for testing)
+API_KEYS_CACHE.set('demo-key', {
+  hash: 'demo-key',
+  userId: 'demo-user',
+  name: 'Demo API Key',
+  lastUsed: Date.now(),
+});
 
 export interface AuthRequest extends Request {
   userId?: string;

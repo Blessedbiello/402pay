@@ -108,14 +108,15 @@ app.get('/metrics', async (req, res) => {
 // Public routes with rate limiting
 app.use('/verify', verificationRateLimiter, verificationRouter);
 app.use('/demo', publicRateLimiter, demoRouter);
+// Marketplace and escrow are public for demo (add auth in production)
+app.use('/marketplace', publicRateLimiter, marketplaceRouter);
+app.use('/escrow', publicRateLimiter, escrowRouter);
 
 // Protected routes with authentication and rate limiting
 app.use('/subscriptions', authMiddleware, authenticatedRateLimiter, subscriptionRouter);
 app.use('/agents', authMiddleware, authenticatedRateLimiter, agentRouter);
 app.use('/analytics', authMiddleware, authenticatedRateLimiter, analyticsRouter);
 app.use('/api-keys', authMiddleware, authenticatedRateLimiter, apiKeysRouter);
-app.use('/marketplace', authMiddleware, authenticatedRateLimiter, marketplaceRouter);
-app.use('/escrow', authMiddleware, authenticatedRateLimiter, escrowRouter);
 
 // 404 handler
 app.use((req, res) => {
