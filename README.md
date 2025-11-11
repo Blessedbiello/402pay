@@ -57,6 +57,71 @@ AgentForce proves that 402pay enables:
 
 ---
 
+## 🔌 HTTP 402 Payment Required (x402 Protocol)
+
+402pay implements the official **HTTP 402 Payment Required** standard for micropayments on Solana.
+
+### ✅ Full x402 Compliance
+
+- ✅ Proper HTTP 402 status code responses
+- ✅ `X-PAYMENT` header for payment proofs
+- ✅ `X-PAYMENT-RESPONSE` header for confirmations
+- ✅ On-chain transaction verification
+- ✅ Payment requirements in standard format
+- ✅ Automatic payment flow handling
+
+### 🎯 Live x402 Examples
+
+Try these working endpoints that demonstrate proper HTTP 402 implementation:
+
+```bash
+# See payment requirements (returns 402)
+curl http://localhost:3001/x402/paid-greeting
+
+# Returns:
+{
+  "x402Version": "0.1.0",
+  "paymentRequirements": [{
+    "scheme": "exact",
+    "network": "solana-devnet",
+    "maxAmountRequired": "1000000",
+    "recipient": "YOUR_WALLET",
+    "resource": "/x402/paid-greeting",
+    "description": "Access to premium greeting service"
+  }]
+}
+```
+
+**Available Endpoints:**
+- `/x402/paid-greeting` - Simple greeting (0.001 SOL)
+- `/x402/paid-data` - Premium market data (0.005 SOL)
+- `/x402/paid-inference` - AI inference service (0.01 SOL)
+- `/x402/paid-image` - AI image generation (0.02 SOL)
+- `/x402/paid-proxy/:service` - API proxy (0.002 SOL)
+
+### 💻 SDK Auto-Payment
+
+The SDK handles the entire payment flow automatically:
+
+```typescript
+import { X402Client } from '@402pay/sdk';
+
+const client = new X402Client({
+  payer: keypair,
+  rpcUrl: 'https://api.devnet.solana.com',
+});
+
+// Automatically: detect 402 → create payment → retry with proof → return data
+const result = await client.paidRequest('http://localhost:3001/x402/paid-greeting');
+
+console.log(result.data);          // Your content
+console.log(result.payment.signature); // Solana transaction
+```
+
+**[Read Full x402 Documentation →](./X402.md)**
+
+---
+
 ## 🚀 Quick Start
 
 ### Install the SDK
@@ -109,7 +174,9 @@ app.listen(3000);
 ## 🎨 Features
 
 ### For Developers
+- **HTTP 402 Compliance** - Full x402 protocol implementation ([docs](./X402.md))
 - **One-line integration** - Express middleware, Next.js API routes
+- **Auto-payment SDK** - Automatic 402 detection and payment handling
 - **Multi-language SDKs** - TypeScript, Rust (Python, Go coming soon)
 - **Test mode** - Develop without real payments
 - **Webhooks** - Real-time payment notifications
@@ -135,18 +202,23 @@ app.listen(3000);
 
 ### TypeScript SDK
 - **SolPay402 Client** - Main SDK class
-- **Express Middleware** - x402 payment protection
+- **X402Client** - Automatic HTTP 402 payment handling
+- **x402Middleware** - Express middleware for payment protection
 - **Subscription Manager** - Recurring billing
 - **Agent Manager** - AI wallet management
 
 ### Facilitator Backend
+- **x402 Protocol Engine** - HTTP 402 compliance with on-chain verification
 - **Verification Engine** - Ed25519 signature validation
 - **Settlement Engine** - Solana transaction handling
 - **Analytics Pipeline** - Real-time event streaming
 - **API Routes**:
+  - `/x402/*` - HTTP 402 example endpoints (5 working demos)
   - `/verify` - Verify payment proofs
   - `/subscriptions` - Manage subscriptions
   - `/agents` - Agent wallet CRUD
+  - `/marketplace` - AgentForce marketplace
+  - `/escrow` - Agent-to-agent escrow
   - `/analytics` - Revenue and metrics
 
 ### Dashboard (Coming Soon)
@@ -229,6 +301,13 @@ VALID_API_KEYS=test_key_1,test_key_2
 - [ ] Custom webhook integrations
 - [ ] White-label dashboard options
 - [ ] Enterprise SLAs and support
+
+## 📚 Documentation
+
+- **[X402 Protocol Guide](./X402.md)** - Complete HTTP 402 implementation guide with examples
+- **[AgentForce Documentation](./AGENTFORCE.md)** - Autonomous agent marketplace architecture
+- **[AgentForce Architecture](./AGENTFORCE_ARCHITECTURE.md)** - Technical deep dive
+- **[Testing Guide](./TESTING.md)** - How to test 402pay components
 
 ## 💼 Use Cases
 
