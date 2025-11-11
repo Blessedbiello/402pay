@@ -14,3 +14,7 @@ export * from './x402-spec-types';
 
 // Legacy x402 types (deprecated, use x402-spec-types instead)
 export * from './x402-types';
+
+// Kora RPC Types and Client (Gasless Transactions)
+export * from './kora-types';
+export * from './kora-client';

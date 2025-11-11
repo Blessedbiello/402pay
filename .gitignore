@@ -52,6 +52,9 @@ Cargo.lock
 .anchor
 test-ledger/
 
+# Kora RPC keypairs (NEVER commit these!)
+kora-config/keypairs/
+
 # Documentation (ignore all except README)
 DEPLOYMENT.md
 HACKATHON.md

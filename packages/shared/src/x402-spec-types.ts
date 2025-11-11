@@ -151,8 +151,19 @@ export interface PaymentPayload {
  * For "exact" scheme on Solana networks.
  */
 export interface SolanaPaymentData {
-  /** Solana transaction signature */
-  signature: string;
+  /**
+   * Solana transaction signature
+   * Present when user has already submitted transaction (direct RPC flow)
+   * Optional when using gasless facilitator (Kora flow)
+   */
+  signature?: string;
+
+  /**
+   * Base64-encoded unsigned/partially-signed transaction
+   * Used with gasless facilitators like Kora
+   * The facilitator will sign as fee payer and submit to Solana
+   */
+  unsigned_transaction?: string;
 
   /** Payer's public key (base58) */
   from: string;
@@ -399,12 +410,13 @@ export interface X402MiddlewareConfig {
 
 /**
  * Type guard to check if payload is Solana payment data
+ * Supports both direct RPC flow (with signature) and Kora gasless flow (with unsigned_transaction)
  */
 export function isSolanaPaymentData(payload: any): payload is SolanaPaymentData {
   return (
     typeof payload === 'object' &&
     payload !== null &&
-    'signature' in payload &&
+    ('signature' in payload || 'unsigned_transaction' in payload) &&
     'from' in payload &&
     'to' in payload &&
     'amount' in payload &&

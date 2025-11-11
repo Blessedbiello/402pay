@@ -71,11 +71,12 @@ var X402ErrorCode;
 })(X402ErrorCode || (exports.X402ErrorCode = X402ErrorCode = {}));
 /**
  * Type guard to check if payload is Solana payment data
+ * Supports both direct RPC flow (with signature) and Kora gasless flow (with unsigned_transaction)
  */
 function isSolanaPaymentData(payload) {
     return (typeof payload === 'object' &&
         payload !== null &&
-        'signature' in payload &&
+        ('signature' in payload || 'unsigned_transaction' in payload) &&
         'from' in payload &&
         'to' in payload &&
         'amount' in payload &&

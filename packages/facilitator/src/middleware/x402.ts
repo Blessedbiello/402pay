@@ -14,6 +14,7 @@ import {
   PaymentPayload,
   PaymentResponse,
   SolanaPaymentData,
+  VerifyResponse,
   isSolanaPaymentData,
   X402_SPEC_VERSION,
   X402_HTTP_HEADERS,
@@ -62,6 +63,12 @@ export interface X402Config {
 
   /** Output schema (optional) */
   outputSchema?: object | null;
+
+  /** Facilitator URL for gasless transactions (optional) */
+  facilitatorUrl?: string;
+
+  /** Enable gasless flow (uses facilitator instead of on-chain verification) */
+  useGasless?: boolean;
 }
 
 /**
@@ -111,9 +118,11 @@ export function x402Middleware(config: X402Config) {
         ? (verification.payment?.payload as SolanaPaymentData)
         : null;
 
+      // For direct RPC flow, we have a transaction signature
+      // For gasless flow, transaction will be settled later
       const paymentResponse: PaymentResponse = {
         success: true,
-        transaction: solanaPayload?.signature || '',
+        transaction: solanaPayload?.signature || '', // Empty for gasless until settlement
         network: config.network || 'solana-devnet',
         payer: solanaPayload?.from || '',
       };
@@ -250,17 +259,54 @@ async function verifyPayment(
       }
     }
 
-    // Verify transaction on Solana blockchain
-    const isOnChain = await verifyTransactionOnChain(
-      solanaPayload.signature,
-      payment.network
-    );
+    // Determine verification flow: gasless (Kora) or direct RPC
+    const isGaslessFlow = config.useGasless || solanaPayload.unsigned_transaction;
 
-    if (!isOnChain) {
-      return {
-        isValid: false,
-        invalidReason: 'Transaction not found on blockchain or not confirmed',
-      };
+    if (isGaslessFlow) {
+      // Gasless flow: verify through facilitator (Kora)
+      if (!solanaPayload.unsigned_transaction) {
+        return {
+          isValid: false,
+          invalidReason: 'Gasless flow requires unsigned_transaction field',
+        };
+      }
+
+      const facilitatorUrl = config.facilitatorUrl ||
+        process.env.KORA_FACILITATOR_URL ||
+        'http://localhost:3001/x402/kora';
+
+      const isValid = await verifyWithFacilitator(
+        paymentHeader,
+        config,
+        facilitatorUrl
+      );
+
+      if (!isValid) {
+        return {
+          isValid: false,
+          invalidReason: 'Facilitator verification failed',
+        };
+      }
+    } else {
+      // Direct RPC flow: verify transaction on Solana blockchain
+      if (!solanaPayload.signature) {
+        return {
+          isValid: false,
+          invalidReason: 'Direct RPC flow requires signature field',
+        };
+      }
+
+      const isOnChain = await verifyTransactionOnChain(
+        solanaPayload.signature,
+        payment.network
+      );
+
+      if (!isOnChain) {
+        return {
+          isValid: false,
+          invalidReason: 'Transaction not found on blockchain or not confirmed',
+        };
+      }
     }
 
     // Check timeout (SPEC: maxTimeoutSeconds is in SECONDS, not milliseconds)
@@ -340,6 +386,70 @@ async function verifyTransactionOnChain(
 }
 
 /**
+ * Verify payment with gasless facilitator (Kora)
+ * Calls the facilitator's /verify endpoint
+ */
+async function verifyWithFacilitator(
+  paymentHeader: string,
+  config: X402Config,
+  facilitatorUrl: string
+): Promise<boolean> {
+  try {
+    const paymentRequirements: PaymentRequirements = {
+      scheme: 'exact',
+      network: config.network || 'solana-devnet',
+      maxAmountRequired: config.amount,
+      payTo: config.payTo,
+      asset: config.asset || '',
+      resource: '',
+      description: config.description,
+      mimeType: config.mimeType || 'application/json',
+      outputSchema: config.outputSchema || null,
+      maxTimeoutSeconds: config.maxTimeoutSeconds || 60,
+      extra: config.extra || null,
+    };
+
+    const verifyRequest = {
+      x402Version: X402_SPEC_VERSION,
+      paymentHeader,
+      paymentRequirements,
+    };
+
+    const response = await fetch(`${facilitatorUrl}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(verifyRequest),
+    });
+
+    if (!response.ok) {
+      logger.error('Facilitator verification HTTP error', {
+        status: response.status,
+        statusText: response.statusText,
+      });
+      return false;
+    }
+
+    const result = await response.json() as VerifyResponse;
+
+    if (!result.isValid) {
+      logger.warn('Facilitator verification failed', {
+        reason: result.invalidReason,
+      });
+      return false;
+    }
+
+    logger.info('Facilitator verification successful', {
+      payer: result.payer,
+    });
+
+    return true;
+  } catch (error) {
+    logger.error('Facilitator verification error', { error, facilitatorUrl });
+    return false;
+  }
+}
+
+/**
  * Get RPC URL for network
  */
 function getRpcUrl(network: string): string {
@@ -357,10 +467,11 @@ function getRpcUrl(network: string): string {
 
 /**
  * Helper to create x402 payment payload (for testing/SDK)
- * SPEC COMPLIANT
+ * SPEC COMPLIANT - Supports both direct RPC and gasless flows
  */
 export function createPaymentPayload(params: {
-  signature: string;
+  signature?: string;
+  unsigned_transaction?: string;
   from: string;
   to: string;
   amount: string;
@@ -373,6 +484,7 @@ export function createPaymentPayload(params: {
     network: params.network || 'solana-devnet',
     payload: {
       signature: params.signature,
+      unsigned_transaction: params.unsigned_transaction,
       from: params.from,
       to: params.to,
       amount: params.amount,

@@ -27,4 +27,7 @@ __exportStar(require("./config"), exports);
 __exportStar(require("./x402-spec-types"), exports);
 // Legacy x402 types (deprecated, use x402-spec-types instead)
 __exportStar(require("./x402-types"), exports);
+// Kora RPC Types and Client (Gasless Transactions)
+__exportStar(require("./kora-types"), exports);
+__exportStar(require("./kora-client"), exports);
 //# sourceMappingURL=index.js.map

@@ -17,6 +17,7 @@ import { marketplaceRouter } from './routes/marketplace';
 import { escrowRouter } from './routes/escrow';
 import { x402ExamplesRouter } from './routes/x402-examples';
 import { x402FacilitatorRouter } from './services/x402-facilitator';
+import { x402KoraFacilitatorRouter } from './services/x402-kora-facilitator';
 import { errorHandler } from './middleware/error-handler';
 import { authMiddleware } from './middleware/auth';
 import {
@@ -112,6 +113,8 @@ app.use('/verify', verificationRateLimiter, verificationRouter);
 app.use('/demo', publicRateLimiter, demoRouter);
 // x402 Protocol - Official Spec-Compliant Facilitator Service
 app.use('/x402/facilitator', publicRateLimiter, x402FacilitatorRouter);
+// x402 Protocol - Kora Gasless Facilitator Service ✨
+app.use('/x402/kora', publicRateLimiter, x402KoraFacilitatorRouter);
 // x402 Protocol Examples (HTTP 402 compliant endpoints)
 app.use('/x402', publicRateLimiter, x402ExamplesRouter);
 // Marketplace and escrow are public for demo (add auth in production)
