@@ -320,6 +320,9 @@ export interface SupportedKind {
 
   /** Blockchain network */
   network: string;
+
+  /** Fee payer address (optional, for gasless facilitators like Kora) */
+  feePayer?: string;
 }
 
 /**

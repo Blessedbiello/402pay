@@ -136,6 +136,15 @@ router.post('/verify', async (req, res) => {
 
     const solanaData = paymentPayload.payload as SolanaPaymentData;
 
+    // Validate signature is present (required for direct RPC facilitator)
+    if (!solanaData.signature) {
+      const response: VerifyResponse = {
+        isValid: false,
+        invalidReason: 'Missing signature. This facilitator requires a transaction signature (direct RPC flow). For gasless transactions, use the Kora facilitator endpoint.',
+      };
+      return res.json(response);
+    }
+
     // Verify transaction exists on-chain
     try {
       const tx = await connection.getTransaction(solanaData.signature, {
@@ -319,6 +328,19 @@ router.post('/settle', async (req, res) => {
     }
 
     const solanaData = paymentPayload.payload as SolanaPaymentData;
+
+    // Validate signature is present (required for direct RPC facilitator)
+    if (!solanaData.signature) {
+      const response: SettleResponse = {
+        success: false,
+        error: 'Missing signature. This facilitator requires a transaction signature (direct RPC flow). For gasless transactions, use the Kora facilitator endpoint.',
+        txHash: '',
+        networkId: paymentPayload.network,
+        payer: solanaData.from,
+      };
+      return res.json(response);
+    }
+
     const signature = solanaData.signature;
 
     // Check if already settled (prevent double-spending)
