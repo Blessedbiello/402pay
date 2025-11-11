@@ -218,15 +218,17 @@ export const X402_STATUS = {
 } as const;
 
 /**
- * x402 Payment Schemes
+ * x402 Payment Schemes (LEGACY - use X402PaymentScheme from x402-spec-types instead)
+ * @deprecated
  */
-export enum X402PaymentScheme {
+export enum X402PaymentSchemeLegacy {
   EXACT = 'exact',
   UPTO = 'upto', // Future: consumption-based pricing
 }
 
 /**
- * x402 Supported Networks
+ * x402 Supported Networks (LEGACY - use X402Network from x402-spec-types instead)
+ * @deprecated
  */
 export enum X402SupportedNetwork {
   SOLANA = 'solana',
@@ -235,9 +237,10 @@ export enum X402SupportedNetwork {
 }
 
 /**
- * Error Codes
+ * Error Codes (LEGACY - use X402ErrorCode from x402-spec-types instead)
+ * @deprecated
  */
-export enum X402ErrorCode {
+export enum X402ErrorCodeLegacy {
   INVALID_PAYMENT = 'INVALID_PAYMENT',
   INSUFFICIENT_AMOUNT = 'INSUFFICIENT_AMOUNT',
   EXPIRED_PAYMENT = 'EXPIRED_PAYMENT',

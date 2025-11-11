@@ -1,17 +1,23 @@
 /**
  * x402 Protocol Middleware
  * Implements HTTP 402 Payment Required standard
+ *
+ * SPEC COMPLIANT - Based on official Coinbase x402 specification
+ * https://github.com/coinbase/x402
  */
 
 import { Request, Response, NextFunction } from 'express';
 import {
-  X402PaymentRequirement,
-  X402PaymentRequiredResponse,
-  X402PaymentPayload,
-  X402PaymentResponse,
-  X402_VERSION,
-  X402_HEADERS,
-  X402_STATUS,
+  // Spec-compliant types
+  PaymentRequirements,
+  PaymentRequirementsResponse,
+  PaymentPayload,
+  PaymentResponse,
+  SolanaPaymentData,
+  isSolanaPaymentData,
+  X402_SPEC_VERSION,
+  X402_HTTP_HEADERS,
+  X402_HTTP_STATUS,
   X402ErrorCode,
 } from '@402pay/shared';
 import { Connection, PublicKey } from '@solana/web3.js';
@@ -21,19 +27,20 @@ const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com'
 const connection = new Connection(SOLANA_RPC, 'confirmed');
 
 export interface X402Request extends Request {
-  x402Payment?: X402PaymentPayload;
+  x402Payment?: PaymentPayload;
   x402Verified?: boolean;
 }
 
 /**
  * x402 Configuration for a protected route
+ * SPEC COMPLIANT - Uses official field names
  */
 export interface X402Config {
   /** Amount required in lamports (for SOL) or token smallest units */
   amount: string;
 
-  /** Recipient wallet address */
-  recipient: string;
+  /** Recipient wallet address (spec: "payTo") */
+  payTo: string;
 
   /** Resource description */
   description: string;
@@ -41,14 +48,20 @@ export interface X402Config {
   /** Network (solana, solana-devnet, etc.) */
   network?: string;
 
-  /** Token mint address (optional, omit for native SOL) */
-  assetAddress?: string;
+  /** Token mint address (spec: "asset", optional for native SOL) */
+  asset?: string;
 
   /** MIME type of resource */
   mimeType?: string;
 
-  /** Timeout in milliseconds */
-  timeout?: number;
+  /** Timeout in SECONDS (spec: "maxTimeoutSeconds") */
+  maxTimeoutSeconds?: number;
+
+  /** Scheme-specific metadata (spec: "extra") */
+  extra?: object | null;
+
+  /** Output schema (optional) */
+  outputSchema?: object | null;
 }
 
 /**
@@ -59,8 +72,9 @@ export interface X402Config {
  * app.get('/api/premium-data',
  *   x402Middleware({
  *     amount: '1000000', // 0.001 SOL (1M lamports)
- *     recipient: 'YOUR_WALLET_ADDRESS',
+ *     payTo: 'YOUR_WALLET_ADDRESS',
  *     description: 'Premium data access',
+ *     maxTimeoutSeconds: 60, // 60 seconds
  *   }),
  *   (req, res) => {
  *     // Payment verified, serve content
@@ -73,7 +87,7 @@ export function x402Middleware(config: X402Config) {
   return async (req: X402Request, res: Response, next: NextFunction) => {
     try {
       // Check if X-PAYMENT header is present
-      const paymentHeader = req.headers[X402_HEADERS.PAYMENT.toLowerCase()] as string;
+      const paymentHeader = req.headers[X402_HTTP_HEADERS.PAYMENT.toLowerCase()] as string;
 
       if (!paymentHeader) {
         // No payment provided - return 402 with payment requirements
@@ -85,36 +99,34 @@ export function x402Middleware(config: X402Config) {
 
       if (!verification.isValid) {
         // Invalid payment - return 402 with error
-        return send402Response(req, res, config, {
-          code: X402ErrorCode.INVALID_PAYMENT,
-          message: verification.invalidReason || 'Payment verification failed',
-        });
+        return send402Response(req, res, config, verification.invalidReason);
       }
 
       // Payment verified - attach to request and continue
       req.x402Payment = verification.payment;
       req.x402Verified = true;
 
-      // Add payment response header
-      const paymentResponse: X402PaymentResponse = {
+      // Add payment response header (SPEC COMPLIANT)
+      const solanaPayload = isSolanaPaymentData(verification.payment?.payload)
+        ? (verification.payment?.payload as SolanaPaymentData)
+        : null;
+
+      const paymentResponse: PaymentResponse = {
         success: true,
-        transactionHash: verification.payment?.payload.signature,
+        transaction: solanaPayload?.signature || '',
         network: config.network || 'solana-devnet',
-        resource: {
-          id: req.path,
-          type: config.mimeType || 'application/json',
-        },
+        payer: solanaPayload?.from || '',
       };
 
       res.setHeader(
-        X402_HEADERS.PAYMENT_RESPONSE,
+        X402_HTTP_HEADERS.PAYMENT_RESPONSE,
         Buffer.from(JSON.stringify(paymentResponse)).toString('base64')
       );
 
       next();
     } catch (error) {
       logger.error('x402 middleware error', { error });
-      res.status(X402_STATUS.BAD_REQUEST).json({
+      res.status(X402_HTTP_STATUS.BAD_REQUEST).json({
         error: 'Payment processing error',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -124,36 +136,42 @@ export function x402Middleware(config: X402Config) {
 
 /**
  * Send HTTP 402 Payment Required response
+ * SPEC COMPLIANT - Uses official field names
  */
 function send402Response(
   req: Request,
   res: Response,
   config: X402Config,
-  error?: { code: string; message: string }
+  error?: string
 ) {
-  const paymentRequirement: X402PaymentRequirement = {
+  // Build spec-compliant PaymentRequirements
+  const paymentRequirement: PaymentRequirements = {
     scheme: 'exact',
     network: config.network || 'solana-devnet',
     maxAmountRequired: config.amount,
-    recipient: config.recipient,
+    payTo: config.payTo, // SPEC COMPLIANT
+    asset: config.asset || '', // SPEC COMPLIANT (empty string for native SOL)
     resource: req.path,
     description: config.description,
     mimeType: config.mimeType || 'application/json',
-    assetAddress: config.assetAddress,
-    timeout: config.timeout || 60000, // 60 seconds default
+    outputSchema: config.outputSchema || null,
+    maxTimeoutSeconds: config.maxTimeoutSeconds || 60, // SPEC COMPLIANT (seconds, not ms)
+    extra: config.extra || null, // SPEC COMPLIANT
   };
 
-  const response: X402PaymentRequiredResponse = {
-    x402Version: X402_VERSION,
-    paymentRequirements: [paymentRequirement],
+  // Build spec-compliant 402 response
+  const response: PaymentRequirementsResponse = {
+    x402Version: X402_SPEC_VERSION, // SPEC COMPLIANT (number, not string)
+    accepts: [paymentRequirement], // SPEC COMPLIANT (was "paymentRequirements")
     ...(error && { error }),
   };
 
-  res.status(X402_STATUS.PAYMENT_REQUIRED).json(response);
+  res.status(X402_HTTP_STATUS.PAYMENT_REQUIRED).json(response);
 }
 
 /**
  * Verify payment from X-PAYMENT header
+ * SPEC COMPLIANT - Uses spec types and field names
  */
 async function verifyPayment(
   paymentHeader: string,
@@ -162,15 +180,15 @@ async function verifyPayment(
 ): Promise<{
   isValid: boolean;
   invalidReason?: string;
-  payment?: X402PaymentPayload;
+  payment?: PaymentPayload;
 }> {
   try {
     // Decode base64 payment payload
     const payloadJson = Buffer.from(paymentHeader, 'base64').toString('utf-8');
-    const payment: X402PaymentPayload = JSON.parse(payloadJson);
+    const payment: PaymentPayload = JSON.parse(payloadJson);
 
     // Verify x402 version
-    if (payment.x402Version !== X402_VERSION) {
+    if (payment.x402Version !== X402_SPEC_VERSION) {
       return {
         isValid: false,
         invalidReason: `Unsupported x402 version: ${payment.x402Version}`,
@@ -194,8 +212,18 @@ async function verifyPayment(
       };
     }
 
+    // Verify this is Solana payment data
+    if (!isSolanaPaymentData(payment.payload)) {
+      return {
+        isValid: false,
+        invalidReason: 'Invalid Solana payment data',
+      };
+    }
+
+    const solanaPayload = payment.payload as SolanaPaymentData;
+
     // Verify amount
-    const paidAmount = BigInt(payment.payload.amount);
+    const paidAmount = BigInt(solanaPayload.amount);
     const requiredAmount = BigInt(config.amount);
     if (paidAmount < requiredAmount) {
       return {
@@ -204,27 +232,27 @@ async function verifyPayment(
       };
     }
 
-    // Verify recipient
-    if (payment.payload.to !== config.recipient) {
+    // Verify recipient (SPEC: uses "payTo")
+    if (solanaPayload.to !== config.payTo) {
       return {
         isValid: false,
-        invalidReason: `Recipient mismatch. Expected ${config.recipient}, got ${payment.payload.to}`,
+        invalidReason: `Recipient mismatch. Expected ${config.payTo}, got ${solanaPayload.to}`,
       };
     }
 
-    // Verify token (if specified)
-    if (config.assetAddress) {
-      if (payment.payload.mint !== config.assetAddress) {
+    // Verify token (if specified) (SPEC: uses "asset")
+    if (config.asset) {
+      if (solanaPayload.mint !== config.asset) {
         return {
           isValid: false,
-          invalidReason: `Token mismatch. Expected ${config.assetAddress}, got ${payment.payload.mint}`,
+          invalidReason: `Token mismatch. Expected ${config.asset}, got ${solanaPayload.mint}`,
         };
       }
     }
 
     // Verify transaction on Solana blockchain
     const isOnChain = await verifyTransactionOnChain(
-      payment.payload.signature,
+      solanaPayload.signature,
       payment.network
     );
 
@@ -235,22 +263,22 @@ async function verifyPayment(
       };
     }
 
-    // Check timeout
-    if (config.timeout) {
-      const age = Date.now() - payment.payload.timestamp;
-      if (age > config.timeout) {
+    // Check timeout (SPEC: maxTimeoutSeconds is in SECONDS, not milliseconds)
+    if (config.maxTimeoutSeconds) {
+      const ageSeconds = Math.floor((Date.now() - solanaPayload.timestamp) / 1000);
+      if (ageSeconds > config.maxTimeoutSeconds) {
         return {
           isValid: false,
-          invalidReason: `Payment expired. Timeout: ${config.timeout}ms, Age: ${age}ms`,
+          invalidReason: `Payment expired. Timeout: ${config.maxTimeoutSeconds}s, Age: ${ageSeconds}s`,
         };
       }
     }
 
     logger.info('x402 payment verified', {
-      signature: payment.payload.signature,
-      from: payment.payload.from,
-      to: payment.payload.to,
-      amount: payment.payload.amount,
+      signature: solanaPayload.signature,
+      from: solanaPayload.from,
+      to: solanaPayload.to,
+      amount: solanaPayload.amount,
     });
 
     return {
@@ -329,6 +357,7 @@ function getRpcUrl(network: string): string {
 
 /**
  * Helper to create x402 payment payload (for testing/SDK)
+ * SPEC COMPLIANT
  */
 export function createPaymentPayload(params: {
   signature: string;
@@ -338,8 +367,8 @@ export function createPaymentPayload(params: {
   mint?: string;
   network?: string;
 }): string {
-  const payload: X402PaymentPayload = {
-    x402Version: X402_VERSION,
+  const payload: PaymentPayload = {
+    x402Version: X402_SPEC_VERSION,
     scheme: 'exact',
     network: params.network || 'solana-devnet',
     payload: {

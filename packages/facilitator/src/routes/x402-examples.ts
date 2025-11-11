@@ -1,16 +1,20 @@
 /**
  * x402 Protocol Example Routes
  * Demonstrates proper HTTP 402 Payment Required implementation
+ *
+ * SPEC COMPLIANT - All endpoints use official x402 field names
+ * Based on: https://github.com/coinbase/x402
  */
 
 import { Router } from 'express';
 import { x402Middleware, X402Request } from '../middleware/x402';
 import { publicRateLimiter } from '../middleware/rate-limit';
+import { isSolanaPaymentData, SolanaPaymentData } from '@402pay/shared';
 
 const router = Router();
 
 // Your demo wallet address (replace with actual)
-const DEMO_RECIPIENT = process.env.DEMO_WALLET_ADDRESS || 'DemoWalletAddressHere123456789';
+const DEMO_PAYTO = process.env.DEMO_WALLET_ADDRESS || 'DemoWalletAddressHere123456789';
 
 /**
  * Example 1: Simple paid endpoint
@@ -28,21 +32,25 @@ router.get(
   publicRateLimiter,
   x402Middleware({
     amount: '1000000', // 0.001 SOL = 1M lamports
-    recipient: DEMO_RECIPIENT,
+    payTo: DEMO_PAYTO, // SPEC COMPLIANT
     description: 'Access to premium greeting service',
     mimeType: 'application/json',
+    maxTimeoutSeconds: 60, // SPEC COMPLIANT (seconds)
   }),
   (req: X402Request, res) => {
     // Payment verified by middleware
     const payment = req.x402Payment;
+    const solanaPayload = isSolanaPaymentData(payment?.payload)
+      ? (payment.payload as SolanaPaymentData)
+      : null;
 
     res.json({
       message: 'Hello from paid endpoint!',
       greeting: '👋 Welcome to x402 on Solana',
       payment: {
-        from: payment?.payload.from,
-        amount: payment?.payload.amount,
-        signature: payment?.payload.signature,
+        from: solanaPayload?.from,
+        amount: solanaPayload?.amount,
+        signature: solanaPayload?.signature,
       },
       timestamp: new Date().toISOString(),
     });
@@ -58,9 +66,10 @@ router.get(
   publicRateLimiter,
   x402Middleware({
     amount: '5000000', // 0.005 SOL
-    recipient: DEMO_RECIPIENT,
+    payTo: DEMO_PAYTO, // SPEC COMPLIANT
     description: 'Premium market data access',
     mimeType: 'application/json',
+    maxTimeoutSeconds: 60, // SPEC COMPLIANT (seconds)
   }),
   (req: X402Request, res) => {
     // Simulate premium data
@@ -74,12 +83,16 @@ router.get(
       lastUpdate: new Date().toISOString(),
     };
 
+    const solanaPayload = isSolanaPaymentData(req.x402Payment?.payload)
+      ? (req.x402Payment.payload as SolanaPaymentData)
+      : null;
+
     res.json({
       data: marketData,
       meta: {
         paid: true,
-        amount: req.x402Payment?.payload.amount,
-        payer: req.x402Payment?.payload.from,
+        amount: solanaPayload?.amount,
+        payer: solanaPayload?.from,
       },
     });
   }
@@ -94,10 +107,10 @@ router.post(
   publicRateLimiter,
   x402Middleware({
     amount: '10000000', // 0.01 SOL
-    recipient: DEMO_RECIPIENT,
+    payTo: DEMO_PAYTO, // SPEC COMPLIANT
     description: 'AI inference service - GPT-4 quality responses',
     mimeType: 'application/json',
-    timeout: 300000, // 5 minutes
+    maxTimeoutSeconds: 300, // SPEC COMPLIANT (5 minutes in seconds)
   }),
   (req: X402Request, res) => {
     const { prompt } = req.body;
@@ -107,6 +120,10 @@ router.post(
         error: 'Missing prompt in request body',
       });
     }
+
+    const solanaPayload = isSolanaPaymentData(req.x402Payment?.payload)
+      ? (req.x402Payment.payload as SolanaPaymentData)
+      : null;
 
     // Simulate AI response (in production, call actual AI service)
     const response = {
@@ -119,13 +136,13 @@ router.post(
         total: prompt.split(' ').length + 50,
       },
       cost: {
-        amount: req.x402Payment?.payload.amount,
+        amount: solanaPayload?.amount,
         currency: 'lamports',
         usd: '0.01',
       },
       payment: {
-        signature: req.x402Payment?.payload.signature,
-        from: req.x402Payment?.payload.from,
+        signature: solanaPayload?.signature,
+        from: solanaPayload?.from,
       },
     };
 
@@ -142,9 +159,10 @@ router.post(
   publicRateLimiter,
   x402Middleware({
     amount: '20000000', // 0.02 SOL
-    recipient: DEMO_RECIPIENT,
+    payTo: DEMO_PAYTO, // SPEC COMPLIANT
     description: 'AI image generation service - DALL-E quality',
     mimeType: 'application/json',
+    maxTimeoutSeconds: 120, // SPEC COMPLIANT (2 minutes in seconds)
   }),
   (req: X402Request, res) => {
     const { prompt, size = '1024x1024' } = req.body;
@@ -155,6 +173,10 @@ router.post(
       });
     }
 
+    const solanaPayload = isSolanaPaymentData(req.x402Payment?.payload)
+      ? (req.x402Payment.payload as SolanaPaymentData)
+      : null;
+
     // Simulate image generation response
     const response = {
       prompt,
@@ -164,14 +186,14 @@ router.post(
       size,
       model: 'dall-e-3-simulated',
       cost: {
-        amount: req.x402Payment?.payload.amount,
+        amount: solanaPayload?.amount,
         currency: 'lamports',
         usd: '0.02',
       },
       payment: {
-        signature: req.x402Payment?.payload.signature,
-        from: req.x402Payment?.payload.from,
-        timestamp: req.x402Payment?.payload.timestamp,
+        signature: solanaPayload?.signature,
+        from: solanaPayload?.from,
+        timestamp: solanaPayload?.timestamp,
       },
       generated: new Date().toISOString(),
     };
@@ -189,9 +211,10 @@ router.get(
   publicRateLimiter,
   x402Middleware({
     amount: '2000000', // 0.002 SOL
-    recipient: DEMO_RECIPIENT,
+    payTo: DEMO_PAYTO, // SPEC COMPLIANT
     description: 'Proxy access to premium APIs',
     mimeType: 'application/json',
+    maxTimeoutSeconds: 60, // SPEC COMPLIANT (seconds)
   }),
   (req: X402Request, res) => {
     const { service } = req.params;
@@ -230,11 +253,15 @@ router.get(
       availableServices: Object.keys(services),
     };
 
+    const solanaPayload = isSolanaPaymentData(req.x402Payment?.payload)
+      ? (req.x402Payment.payload as SolanaPaymentData)
+      : null;
+
     res.json({
       ...data,
       payment: {
-        amount: req.x402Payment?.payload.amount,
-        signature: req.x402Payment?.payload.signature,
+        amount: solanaPayload?.amount,
+        signature: solanaPayload?.signature,
       },
     });
   }
@@ -299,7 +326,7 @@ router.get('/', publicRateLimiter, (req, res) => {
       },
     },
     network: 'solana-devnet',
-    recipient: DEMO_RECIPIENT,
+    payTo: DEMO_PAYTO, // SPEC COMPLIANT
   });
 });
 

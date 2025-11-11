@@ -4,7 +4,7 @@
  * Based on: https://github.com/coinbase/x402
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.X402ErrorCode = exports.X402SupportedNetwork = exports.X402PaymentScheme = exports.X402_STATUS = exports.X402_HEADERS = exports.X402_VERSION = void 0;
+exports.X402ErrorCodeLegacy = exports.X402SupportedNetwork = exports.X402PaymentSchemeLegacy = exports.X402_STATUS = exports.X402_HEADERS = exports.X402_VERSION = void 0;
 /**
  * x402 Protocol Version
  */
@@ -27,15 +27,17 @@ exports.X402_STATUS = {
     BAD_REQUEST: 400,
 };
 /**
- * x402 Payment Schemes
+ * x402 Payment Schemes (LEGACY - use X402PaymentScheme from x402-spec-types instead)
+ * @deprecated
  */
-var X402PaymentScheme;
-(function (X402PaymentScheme) {
-    X402PaymentScheme["EXACT"] = "exact";
-    X402PaymentScheme["UPTO"] = "upto";
-})(X402PaymentScheme || (exports.X402PaymentScheme = X402PaymentScheme = {}));
+var X402PaymentSchemeLegacy;
+(function (X402PaymentSchemeLegacy) {
+    X402PaymentSchemeLegacy["EXACT"] = "exact";
+    X402PaymentSchemeLegacy["UPTO"] = "upto";
+})(X402PaymentSchemeLegacy || (exports.X402PaymentSchemeLegacy = X402PaymentSchemeLegacy = {}));
 /**
- * x402 Supported Networks
+ * x402 Supported Networks (LEGACY - use X402Network from x402-spec-types instead)
+ * @deprecated
  */
 var X402SupportedNetwork;
 (function (X402SupportedNetwork) {
@@ -44,16 +46,17 @@ var X402SupportedNetwork;
     X402SupportedNetwork["SOLANA_TESTNET"] = "solana-testnet";
 })(X402SupportedNetwork || (exports.X402SupportedNetwork = X402SupportedNetwork = {}));
 /**
- * Error Codes
+ * Error Codes (LEGACY - use X402ErrorCode from x402-spec-types instead)
+ * @deprecated
  */
-var X402ErrorCode;
-(function (X402ErrorCode) {
-    X402ErrorCode["INVALID_PAYMENT"] = "INVALID_PAYMENT";
-    X402ErrorCode["INSUFFICIENT_AMOUNT"] = "INSUFFICIENT_AMOUNT";
-    X402ErrorCode["EXPIRED_PAYMENT"] = "EXPIRED_PAYMENT";
-    X402ErrorCode["INVALID_SIGNATURE"] = "INVALID_SIGNATURE";
-    X402ErrorCode["INVALID_NETWORK"] = "INVALID_NETWORK";
-    X402ErrorCode["SETTLEMENT_FAILED"] = "SETTLEMENT_FAILED";
-    X402ErrorCode["ALREADY_SETTLED"] = "ALREADY_SETTLED";
-})(X402ErrorCode || (exports.X402ErrorCode = X402ErrorCode = {}));
+var X402ErrorCodeLegacy;
+(function (X402ErrorCodeLegacy) {
+    X402ErrorCodeLegacy["INVALID_PAYMENT"] = "INVALID_PAYMENT";
+    X402ErrorCodeLegacy["INSUFFICIENT_AMOUNT"] = "INSUFFICIENT_AMOUNT";
+    X402ErrorCodeLegacy["EXPIRED_PAYMENT"] = "EXPIRED_PAYMENT";
+    X402ErrorCodeLegacy["INVALID_SIGNATURE"] = "INVALID_SIGNATURE";
+    X402ErrorCodeLegacy["INVALID_NETWORK"] = "INVALID_NETWORK";
+    X402ErrorCodeLegacy["SETTLEMENT_FAILED"] = "SETTLEMENT_FAILED";
+    X402ErrorCodeLegacy["ALREADY_SETTLED"] = "ALREADY_SETTLED";
+})(X402ErrorCodeLegacy || (exports.X402ErrorCodeLegacy = X402ErrorCodeLegacy = {}));
 //# sourceMappingURL=x402-types.js.map

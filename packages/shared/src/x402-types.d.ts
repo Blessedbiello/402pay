@@ -174,14 +174,16 @@ export declare const X402_STATUS: {
     readonly BAD_REQUEST: 400;
 };
 /**
- * x402 Payment Schemes
+ * x402 Payment Schemes (LEGACY - use X402PaymentScheme from x402-spec-types instead)
+ * @deprecated
  */
-export declare enum X402PaymentScheme {
+export declare enum X402PaymentSchemeLegacy {
     EXACT = "exact",
     UPTO = "upto"
 }
 /**
- * x402 Supported Networks
+ * x402 Supported Networks (LEGACY - use X402Network from x402-spec-types instead)
+ * @deprecated
  */
 export declare enum X402SupportedNetwork {
     SOLANA = "solana",
@@ -189,9 +191,10 @@ export declare enum X402SupportedNetwork {
     SOLANA_TESTNET = "solana-testnet"
 }
 /**
- * Error Codes
+ * Error Codes (LEGACY - use X402ErrorCode from x402-spec-types instead)
+ * @deprecated
  */
-export declare enum X402ErrorCode {
+export declare enum X402ErrorCodeLegacy {
     INVALID_PAYMENT = "INVALID_PAYMENT",
     INSUFFICIENT_AMOUNT = "INSUFFICIENT_AMOUNT",
     EXPIRED_PAYMENT = "EXPIRED_PAYMENT",

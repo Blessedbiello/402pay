@@ -16,6 +16,7 @@ import { apiKeysRouter } from './routes/api-keys';
 import { marketplaceRouter } from './routes/marketplace';
 import { escrowRouter } from './routes/escrow';
 import { x402ExamplesRouter } from './routes/x402-examples';
+import { x402FacilitatorRouter } from './services/x402-facilitator';
 import { errorHandler } from './middleware/error-handler';
 import { authMiddleware } from './middleware/auth';
 import {
@@ -109,6 +110,8 @@ app.get('/metrics', async (req, res) => {
 // Public routes with rate limiting
 app.use('/verify', verificationRateLimiter, verificationRouter);
 app.use('/demo', publicRateLimiter, demoRouter);
+// x402 Protocol - Official Spec-Compliant Facilitator Service
+app.use('/x402/facilitator', publicRateLimiter, x402FacilitatorRouter);
 // x402 Protocol Examples (HTTP 402 compliant endpoints)
 app.use('/x402', publicRateLimiter, x402ExamplesRouter);
 // Marketplace and escrow are public for demo (add auth in production)
