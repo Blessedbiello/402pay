@@ -24,6 +24,13 @@ max_retries = 3
 # Timeout for RPC requests (in seconds)
 timeout = 30
 
+# Allowed SPL tokens for gasless payments
+# Only transactions with these token mints will be accepted
+allowed_tokens = [
+  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",  # USDC devnet
+  "So11111111111111111111111111111111111111112",   # SOL (native)
+]
+
 [signers]
 # Path to signers configuration file
 config_path = "./kora-config/signers.toml"
@@ -53,3 +60,13 @@ require_api_key = false
 # Allowed origins for CORS (comma-separated)
 # Use "*" for development, specific domains for production
 allowed_origins = ["http://localhost:3000", "http://localhost:3001"]
+
+[auth]
+# API authentication for Kora RPC access
+# This should match the KORA_API_KEY in your .env file
+# For development, you can use a simple key
+# For production, use a strong, randomly generated key
+api_key = "kora_facilitator_api_key_example"
+
+# Enable API key requirement (set to true for production)
+enabled = false
