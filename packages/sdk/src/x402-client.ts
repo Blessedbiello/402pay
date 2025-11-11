@@ -106,7 +106,7 @@ export class X402Client {
     }
 
     // Step 2: Parse payment requirements
-    const paymentRequired: X402PaymentRequiredResponse = await initialResponse.json();
+    const paymentRequired = (await initialResponse.json()) as X402PaymentRequiredResponse;
 
     if (!paymentRequired.paymentRequirements || paymentRequired.paymentRequirements.length === 0) {
       throw new Error('No payment requirements specified in 402 response');
@@ -229,7 +229,7 @@ export class X402Client {
       throw new Error(`Endpoint is not x402-protected (status: ${response.status})`);
     }
 
-    const requirements: X402PaymentRequiredResponse = await response.json();
+    const requirements = (await response.json()) as X402PaymentRequiredResponse;
 
     // Calculate price (assuming first requirement uses lamports)
     const firstReq = requirements.paymentRequirements[0];

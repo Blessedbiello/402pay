@@ -163,7 +163,7 @@ export class EscrowManager {
         throw new Error(`Failed to release escrow: ${response.statusText}`);
       }
 
-      const result = await response.json();
+      const result = (await response.json()) as { signature: string };
       return result;
     } catch (error) {
       console.error('Failed to release escrow:', error);
@@ -197,7 +197,7 @@ export class EscrowManager {
         throw new Error(`Failed to refund escrow: ${response.statusText}`);
       }
 
-      const result = await response.json();
+      const result = (await response.json()) as { signature: string };
       return result;
     } catch (error) {
       console.error('Failed to refund escrow:', error);
@@ -278,7 +278,7 @@ export class EscrowManager {
         throw new Error(`Failed to list escrows: ${response.statusText}`);
       }
 
-      const result = await response.json();
+      const result = (await response.json()) as { escrows?: EscrowAccount[] };
       return result.escrows || [];
     } catch (error) {
       console.error('Failed to list escrows:', error);

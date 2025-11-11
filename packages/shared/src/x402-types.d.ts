@@ -174,16 +174,16 @@ export declare const X402_STATUS: {
     readonly BAD_REQUEST: 400;
 };
 /**
- * Payment Schemes
+ * x402 Payment Schemes
  */
-export declare enum PaymentScheme {
+export declare enum X402PaymentScheme {
     EXACT = "exact",
     UPTO = "upto"
 }
 /**
- * Supported Networks
+ * x402 Supported Networks
  */
-export declare enum SupportedNetwork {
+export declare enum X402SupportedNetwork {
     SOLANA = "solana",
     SOLANA_DEVNET = "solana-devnet",
     SOLANA_TESTNET = "solana-testnet"

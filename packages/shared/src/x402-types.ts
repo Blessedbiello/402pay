@@ -218,17 +218,17 @@ export const X402_STATUS = {
 } as const;
 
 /**
- * Payment Schemes
+ * x402 Payment Schemes
  */
-export enum PaymentScheme {
+export enum X402PaymentScheme {
   EXACT = 'exact',
   UPTO = 'upto', // Future: consumption-based pricing
 }
 
 /**
- * Supported Networks
+ * x402 Supported Networks
  */
-export enum SupportedNetwork {
+export enum X402SupportedNetwork {
   SOLANA = 'solana',
   SOLANA_DEVNET = 'solana-devnet',
   SOLANA_TESTNET = 'solana-testnet',

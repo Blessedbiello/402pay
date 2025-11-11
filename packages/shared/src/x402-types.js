@@ -4,7 +4,7 @@
  * Based on: https://github.com/coinbase/x402
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.X402ErrorCode = exports.SupportedNetwork = exports.PaymentScheme = exports.X402_STATUS = exports.X402_HEADERS = exports.X402_VERSION = void 0;
+exports.X402ErrorCode = exports.X402SupportedNetwork = exports.X402PaymentScheme = exports.X402_STATUS = exports.X402_HEADERS = exports.X402_VERSION = void 0;
 /**
  * x402 Protocol Version
  */
@@ -27,22 +27,22 @@ exports.X402_STATUS = {
     BAD_REQUEST: 400,
 };
 /**
- * Payment Schemes
+ * x402 Payment Schemes
  */
-var PaymentScheme;
-(function (PaymentScheme) {
-    PaymentScheme["EXACT"] = "exact";
-    PaymentScheme["UPTO"] = "upto";
-})(PaymentScheme || (exports.PaymentScheme = PaymentScheme = {}));
+var X402PaymentScheme;
+(function (X402PaymentScheme) {
+    X402PaymentScheme["EXACT"] = "exact";
+    X402PaymentScheme["UPTO"] = "upto";
+})(X402PaymentScheme || (exports.X402PaymentScheme = X402PaymentScheme = {}));
 /**
- * Supported Networks
+ * x402 Supported Networks
  */
-var SupportedNetwork;
-(function (SupportedNetwork) {
-    SupportedNetwork["SOLANA"] = "solana";
-    SupportedNetwork["SOLANA_DEVNET"] = "solana-devnet";
-    SupportedNetwork["SOLANA_TESTNET"] = "solana-testnet";
-})(SupportedNetwork || (exports.SupportedNetwork = SupportedNetwork = {}));
+var X402SupportedNetwork;
+(function (X402SupportedNetwork) {
+    X402SupportedNetwork["SOLANA"] = "solana";
+    X402SupportedNetwork["SOLANA_DEVNET"] = "solana-devnet";
+    X402SupportedNetwork["SOLANA_TESTNET"] = "solana-testnet";
+})(X402SupportedNetwork || (exports.X402SupportedNetwork = X402SupportedNetwork = {}));
 /**
  * Error Codes
  */
