@@ -13,6 +13,7 @@ export {
   type CreateEscrowParams,
   type ReleaseEscrowParams,
 } from './escrow';
+export { X402Client, type X402ClientConfig, createX402Client, generateTestWallet } from './x402-client';
 
 // Re-export shared types for convenience
 export * from '@402pay/shared';

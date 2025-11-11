@@ -23,4 +23,5 @@ __exportStar(require("./constants"), exports);
 __exportStar(require("./utils"), exports);
 __exportStar(require("./errors"), exports);
 __exportStar(require("./config"), exports);
+__exportStar(require("./x402-types"), exports);
 //# sourceMappingURL=index.js.map

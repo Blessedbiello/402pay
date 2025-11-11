@@ -7,4 +7,5 @@ export * from './constants';
 export * from './utils';
 export * from './errors';
 export * from './config';
+export * from './x402-types';
 //# sourceMappingURL=index.d.ts.map
