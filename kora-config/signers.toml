@@ -1,0 +1,42 @@
+# Kora Signers Configuration
+# Defines the keypairs that Kora uses to sign transactions as fee payer
+
+[[signer]]
+# Signer name (for logging and identification)
+name = "402pay-fee-payer"
+
+# Path to the keypair JSON file
+# Generate with: solana-keygen new --outfile ./kora-config/keypairs/fee-payer.json
+keypair_path = "./kora-config/keypairs/fee-payer.json"
+
+# Whether this signer is enabled
+enabled = true
+
+# Priority (higher priority signers are used first)
+priority = 1
+
+# Optional: Maximum SOL balance threshold
+# If balance falls below this, log a warning
+min_balance_warning = 0.1
+
+# Optional: Network this signer is for (solana, solana-devnet, etc.)
+network = "solana-devnet"
+
+# Notes:
+# 1. You must generate a keypair before starting Kora:
+#    mkdir -p ./kora-config/keypairs
+#    solana-keygen new --outfile ./kora-config/keypairs/fee-payer.json
+#
+# 2. Fund the keypair with SOL for gas fees:
+#    For devnet:
+#      solana airdrop 2 <PUBKEY> --url devnet
+#    For mainnet:
+#      Transfer SOL from your wallet to the fee payer address
+#
+# 3. Keep the keypair file secure! Anyone with access can spend the SOL.
+#    Add to .gitignore: kora-config/keypairs/
+#
+# 4. For production, consider using:
+#    - Hardware wallets
+#    - Key management services (AWS KMS, Google Cloud KMS)
+#    - Multi-signature setups

@@ -27,48 +27,86 @@ interface SettingsState {
   };
 }
 
-export default function SettingsPage() {
-  const [settings, setSettings] = useState<SettingsState>({
-    apiConfig: {
-      rpcEndpoint: 'https://api.mainnet-beta.solana.com',
-      network: 'mainnet-beta',
-      timeout: 30000,
-    },
-    notifications: {
-      emailTransactions: true,
-      emailWeeklyReport: true,
-      emailSecurityAlerts: true,
-      slackIntegration: false,
-    },
-    webhooks: {
-      transactionUrl: 'https://api.example.com/webhooks/transaction',
-      subscriptionUrl: 'https://api.example.com/webhooks/subscription',
-      failureUrl: 'https://api.example.com/webhooks/failure',
-    },
-    security: {
-      twoFactorEnabled: false,
-      apiKeyRotationDays: 90,
-      ipWhitelist: '',
-    },
-  });
+const SETTINGS_STORAGE_KEY = '402pay_settings';
 
+const DEFAULT_SETTINGS: SettingsState = {
+  apiConfig: {
+    rpcEndpoint: 'https://api.mainnet-beta.solana.com',
+    network: 'mainnet-beta',
+    timeout: 30000,
+  },
+  notifications: {
+    emailTransactions: true,
+    emailWeeklyReport: true,
+    emailSecurityAlerts: true,
+    slackIntegration: false,
+  },
+  webhooks: {
+    transactionUrl: 'https://api.example.com/webhooks/transaction',
+    subscriptionUrl: 'https://api.example.com/webhooks/subscription',
+    failureUrl: 'https://api.example.com/webhooks/failure',
+  },
+  security: {
+    twoFactorEnabled: false,
+    apiKeyRotationDays: 90,
+    ipWhitelist: '',
+  },
+};
+
+export default function SettingsPage() {
+  const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
   const [hasChanges, setHasChanges] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (stored) {
+        const parsedSettings = JSON.parse(stored);
+        setSettings(parsedSettings);
+      }
+    } catch (error) {
+      console.error('Failed to load settings from localStorage:', error);
+      setErrorMessage('Failed to load saved settings. Using defaults.');
+    }
+  }, []);
 
   const handleSaveChanges = () => {
     setSaveStatus('saving');
-    // Placeholder for save functionality
-    setTimeout(() => {
-      setSaveStatus('saved');
-      setHasChanges(false);
-      setTimeout(() => setSaveStatus('idle'), 2000);
-      console.log('Settings saved:', settings);
-    }, 1000);
+    setErrorMessage('');
+
+    try {
+      // Save to localStorage
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+
+      // Simulate async operation (in production, this might be an API call)
+      setTimeout(() => {
+        setSaveStatus('saved');
+        setHasChanges(false);
+
+        // Reset status after 2 seconds
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      }, 500);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      setSaveStatus('error');
+      setErrorMessage('Failed to save settings. Please try again.');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  };
+
+  const handleResetSettings = () => {
+    if (confirm('Are you sure you want to reset all settings to defaults? This cannot be undone.')) {
+      setSettings(DEFAULT_SETTINGS);
+      setHasChanges(true);
+    }
   };
 
   const handleRotateApiKey = () => {
-    console.log('Rotate API key');
-    // Placeholder for API key rotation
+    // Redirect to API keys page for key rotation
+    window.location.href = '/api-keys';
   };
 
   const updateSettings = (section: keyof SettingsState, field: string, value: any) => {
@@ -441,26 +479,52 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Save Changes Button */}
-        <div className="flex items-center justify-end gap-4">
-          {hasChanges && (
-            <span className="text-sm text-gray-600 dark:text-gray-400">You have unsaved changes</span>
-          )}
+        {/* Error/Success Message */}
+        {errorMessage && (
+          <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 mb-6">
+            <p className="text-sm text-red-700 dark:text-red-300">{errorMessage}</p>
+          </div>
+        )}
+
+        {saveStatus === 'saved' && !errorMessage && (
+          <div className="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4 mb-6">
+            <p className="text-sm text-green-700 dark:text-green-300">
+              Settings saved successfully!
+            </p>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-between gap-4">
           <button
-            onClick={handleSaveChanges}
-            disabled={!hasChanges || saveStatus === 'saving'}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-              hasChanges && saveStatus !== 'saving'
-                ? 'bg-primary-600 text-white hover:bg-primary-700'
-                : 'bg-gray-300 text-gray-500 dark:bg-gray-600 dark:text-gray-400 cursor-not-allowed'
-            }`}
+            onClick={handleResetSettings}
+            className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-300 dark:border-gray-600"
           >
-            {saveStatus === 'saving'
-              ? 'Saving...'
-              : saveStatus === 'saved'
-                ? 'Saved!'
-                : 'Save Changes'}
+            Reset to Defaults
           </button>
+
+          <div className="flex items-center gap-4">
+            {hasChanges && (
+              <span className="text-sm text-orange-600 dark:text-orange-400 font-medium">
+                You have unsaved changes
+              </span>
+            )}
+            <button
+              onClick={handleSaveChanges}
+              disabled={!hasChanges || saveStatus === 'saving'}
+              className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                hasChanges && saveStatus !== 'saving'
+                  ? 'bg-primary-600 text-white hover:bg-primary-700'
+                  : 'bg-gray-300 text-gray-500 dark:bg-gray-600 dark:text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {saveStatus === 'saving'
+                ? 'Saving...'
+                : saveStatus === 'saved'
+                  ? '✓ Saved!'
+                  : 'Save Changes'}
+            </button>
+          </div>
         </div>
       </main>
     </div>
