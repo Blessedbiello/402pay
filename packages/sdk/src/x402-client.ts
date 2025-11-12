@@ -145,7 +145,7 @@ export class X402Client {
     const paidResponse = await fetch(url, {
       ...options,
       headers: {
-        ...options.headers,
+        ...(options.headers as Record<string, string>),
         [X402_HEADERS.PAYMENT]: paymentHeader,
       },
     });
