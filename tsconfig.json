@@ -11,16 +11,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "composite": true,
-    "incremental": true,
-    "baseUrl": ".",
-    "paths": {
-      "@402pay/shared": ["packages/shared/src"],
-      "@402pay/sdk": ["packages/sdk/src"],
-      "@402pay/facilitator": ["packages/facilitator/src"],
-      "@402pay/mcp-server": ["packages/mcp-server/src"]
-    }
+    "sourceMap": true
   }
 }
