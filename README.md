@@ -122,247 +122,393 @@ console.log(result.payment.signature); // Solana transaction
 
 ---
 
-## 🏆 Track Integrations
+## 🏆 Hackathon Prize Tracks
 
-402pay integrates **6 technology tracks** to create a comprehensive payment infrastructure platform for the hackathon submission:
+402pay qualifies for **ALL 5 hackathon prize tracks** with production-ready implementations:
 
-### 1️⃣ Solana Blockchain Integration
+### 🥇 Track 1: Best Trustless Agent ($10,000)
+**Build Autonomous agents with identity, reputation, and validation systems**
 
-**Track:** Solana Development
-**Implementation:** Full Solana blockchain integration for payments and settlements
+#### How 402pay Qualifies:
 
-**Key Features:**
-- **Solana Web3.js** integration across all packages
-- **SPL Token support** for USDC, USDT, SOL, PYUSD
-- **Wallet Adapters** for Phantom, Solflare, and other Solana wallets
-- **On-chain verification** of payment transactions
-- **Real escrow** transactions for agent-to-agent marketplace
+**AgentForce Marketplace** - Complete trustless agent ecosystem:
 
-**Implementation Files:**
-- SDK: `packages/sdk/src/core/solpay.ts`
-- Facilitator: `packages/facilitator/src/services/x402-facilitator.ts:36-39`
-- Dashboard: `apps/dashboard/package.json:16-19`
+**Identity & Verification:**
+- Unique agent IDs tied to Solana wallets
+- On-chain transaction history for verification
+- Agent profile with service capabilities
+- Implementation: `packages/facilitator/src/routes/agents.ts`
 
-**Demo:** All payment flows use real Solana devnet transactions
+**Reputation System:**
+- ⭐ **Performance-based rankings** - Agents ranked by success rate and earnings
+- 🏅 **Achievement badges** - "Top Performer", "Reliable", "Fast Executor"
+- 📊 **Success metrics** - Completion rate, average response time
+- 💰 **Earnings history** - Total SOL earned, jobs completed
+- Implementation: `packages/facilitator/src/routes/marketplace.ts` (leaderboard logic)
+
+**Validation Systems:**
+- ✅ **Escrow-based validation** - Funds locked until job completion
+- ✅ **On-chain verification** - All payments verified on Solana blockchain
+- ✅ **Automatic dispute resolution** - Refunds if job fails
+- ✅ **Multi-signature requirements** - Both parties must confirm
+- Implementation: `packages/facilitator/src/routes/escrow.ts`
+
+**Demo:**
+```bash
+# View agent reputation and rankings
+curl http://localhost:3001/marketplace/leaderboard
+
+# View agent identity and history
+curl http://localhost:3001/agents/agent_imagegen
+```
+
+**Documentation:** `AGENTFORCE.md` sections on reputation and trust
 
 ---
 
-### 2️⃣ MCP (Model Context Protocol) Integration
+### 🥇 Track 2: Best x402 API Integration ($10,000)
+**Create Agent-to-agent payments and micropayments with x402**
 
-**Track:** AI Agent Integration
-**Implementation:** Full MCP server for AI agent payments
+#### How 402pay Qualifies:
 
-**Key Features:**
-- **MCP SDK integration** (@modelcontextprotocol/sdk v1.0.4)
-- **Standardized tools** for AI agents to make payments:
-  - `make_paid_request` - Make API requests with automatic payment
-  - `get_balance` - Check wallet balances
-  - `create_agent_wallet` - Create new agent wallets with spending limits
-- **Agent wallet management** with spending limits and service whitelists
-- **Automatic payment flow** handling for AI agents
-- **Claude Desktop integration** ready
+**100% x402 Spec-Compliant Implementation:**
 
-**Implementation Files:**
-- MCP Server: `packages/mcp-server/src/index.ts:1-412`
-- Tools Definition: `packages/mcp-server/src/index.ts:78-156`
+**Core x402 Features:**
+- ✅ **HTTP 402 status code** responses
+- ✅ **X-PAYMENT header** for payment proofs (Ed25519 signatures)
+- ✅ **X-PAYMENT-RESPONSE** header for confirmations
+- ✅ **Base64-encoded payment payloads**
+- ✅ **On-chain transaction verification**
+- Implementation: `packages/facilitator/src/services/x402-facilitator.ts`
+
+**Three Required Endpoints:**
+1. **POST /verify** - Validate payment without settlement (line 64)
+2. **POST /settle** - Execute on-chain payment (line 178)
+3. **GET /supported** - List supported schemes/networks
+
+**Agent-to-Agent Payments:**
+- 🤖 **Coordinator Agent** hires Image Gen Agent via x402
+- 💰 **Automatic escrow** - Funds held until work complete
+- 🔄 **Real Solana transactions** - Not simulated
+- ⚡ **Micropayments** - As low as 0.001 SOL
+- Implementation: `packages/facilitator/src/agents/coordinator-worker.ts`
+
+**5 Working x402 Endpoints:**
+```bash
+# Micropayment examples
+curl http://localhost:3001/x402/paid-greeting    # 0.001 SOL
+curl http://localhost:3001/x402/paid-data        # 0.005 SOL
+curl http://localhost:3001/x402/paid-inference   # 0.01 SOL
+curl http://localhost:3001/x402/paid-image       # 0.02 SOL
+curl http://localhost:3001/x402/paid-proxy/:svc  # 0.002 SOL
+```
+
+**Documentation:** `X402.md` - Complete x402 protocol guide
+
+---
+
+### 🥇 Track 3: Best MCP Server ($10,000)
+**Develop Model Context Protocol servers connecting AI agents to payments**
+
+#### How 402pay Qualifies:
+
+**Production MCP Server for AI Agent Payments:**
+
+**Full MCP Integration:**
+- 📦 **Package:** `packages/mcp-server/` (complete package)
+- 🔌 **SDK:** @modelcontextprotocol/sdk v1.0.4
+- 🎯 **Transport:** StdioServerTransport for Claude Desktop
+- ⚙️ **Status:** Production-ready, Claude-compatible
+
+**Three Standardized Tools:**
+
+1. **`make_paid_request`** - Make API requests with automatic x402 payment
+   - Detects 402 responses
+   - Creates Solana payment
+   - Signs transaction
+   - Retries with payment proof
+   - Returns protected content
+
+2. **`get_balance`** - Check wallet balances
+   - Supports SOL and SPL tokens (USDC, USDT)
+   - Real-time on-chain queries
+   - Multiple token support
+
+3. **`create_agent_wallet`** - Create agent wallets with controls
+   - Spending limits (daily caps)
+   - Service whitelists (approved APIs only)
+   - Automatic key management
+
+**Implementation:**
+- MCP Server: `packages/mcp-server/src/index.ts` (lines 1-412)
+- Tool Handlers: Lines 200-380
+- Zod Schemas: Lines 24-40
+
+**Usage in Claude Desktop:**
+```json
+{
+  "mcpServers": {
+    "402pay": {
+      "command": "node",
+      "args": ["/path/to/402pay/packages/mcp-server/dist/index.js"],
+      "env": {
+        "AGENT_WALLET_SECRET_KEY": "[...]",
+        "SOLANA_NETWORK": "devnet"
+      }
+    }
+  }
+}
+```
 
 **Demo:**
 ```bash
 cd packages/mcp-server
 npm run dev
-# MCP server starts on stdio for Claude integration
+# MCP server starts and connects to Claude
 ```
 
-**Usage in Claude:**
-AI agents can now autonomously:
-- Discover paid APIs
-- Make payments from their wallet
-- Track spending against limits
-- Access premium services
+**What Makes It Special:**
+- ✅ First MCP server for x402 payments
+- ✅ Connects Claude to Solana blockchain
+- ✅ Automatic payment flow handling
+- ✅ Production-ready error handling
+
+**Documentation:** `packages/mcp-server/README.md`
 
 ---
 
-### 3️⃣ x402 Protocol (HTTP 402 Payment Required)
+### 🥇 Track 4: Best x402 Dev Tool ($10,000)
+**Create SDKs, libraries, frameworks, or infrastructure to accelerate x402 development on Solana**
 
-**Track:** x402 Payment Protocol
-**Implementation:** 100% spec-compliant x402 facilitator
+#### How 402pay Qualifies:
 
-**Key Features:**
-- **Full x402 compliance** based on [Coinbase x402 spec](https://github.com/coinbase/x402)
-- **Three required endpoints:**
-  - `POST /verify` - Validate payment without settlement (packages/facilitator/src/services/x402-facilitator.ts:64)
-  - `POST /settle` - Execute on-chain payment settlement (packages/facilitator/src/services/x402-facilitator.ts:178)
-  - `GET /supported` - List supported (scheme, network) combinations
-- **Proper HTTP 402 responses** with payment requirements
-- **X-PAYMENT header** verification with Ed25519 signatures
-- **On-chain transaction verification** against Solana blockchain
-- **5 working demo endpoints** showcasing different use cases
+**Complete x402 Development Toolkit:**
 
-**Implementation Files:**
-- Facilitator Core: `packages/facilitator/src/services/x402-facilitator.ts:1-350`
-- Middleware: `packages/facilitator/src/middleware/x402.ts`
-- Examples: `packages/facilitator/src/routes/x402-examples.ts`
+**1. TypeScript SDK** (`packages/sdk/`)
 
-**Demo Endpoints:**
-```bash
-# Start facilitator
-cd packages/facilitator && npm run dev
+**Core Classes:**
+- **`SolPay402`** - Main SDK class for payment infrastructure
+- **`X402Client`** - Automatic HTTP 402 payment handling
+- **`createPaymentMiddleware()`** - One-line Express integration
+- **`AgentWalletManager`** - AI agent wallet management
+- **`SubscriptionManager`** - Recurring billing
 
-# Try x402 endpoints
-curl http://localhost:3001/x402/paid-greeting
-curl http://localhost:3001/x402/paid-data
-curl http://localhost:3001/x402/paid-inference
-curl http://localhost:3001/x402/paid-image
+**One-Line Integration:**
+```typescript
+import { createPaymentMiddleware } from '@402pay/sdk';
+
+app.get('/api/premium',
+  createPaymentMiddleware(solpay, { price: 0.01 }),
+  (req, res) => res.json({ data: 'Premium!' })
+);
 ```
 
-**Spec Compliance:** ✅ 100% compliant with x402 v0.1.0 specification
+**Auto-Payment Client:**
+```typescript
+import { X402Client } from '@402pay/sdk';
 
----
+const client = new X402Client({ payer: keypair });
+// Automatically handles 402 → payment → retry → content
+const result = await client.paidRequest('http://api.com/premium');
+```
 
-### 4️⃣ Kora RPC Integration (Gasless Transactions)
+**2. Facilitator Infrastructure** (`packages/facilitator/`)
 
-**Track:** Kora Infrastructure
-**Implementation:** Alternative gasless facilitator using Kora RPC
+**Two Facilitator Implementations:**
+- ✅ **Direct RPC** - Simple, fast, spec-compliant
+- ✅ **Kora RPC** - Gasless transactions for better UX
 
-**Key Features:**
-- **Kora client integration** for gasless transactions
-- **Fee abstraction** - Users pay in USDC without needing SOL for gas
-- **Kora signs as fee payer** eliminating gas fee requirement for users
-- **Production-ready architecture** matching Kora reference implementation
-- **Dual implementation** - Both direct RPC and Kora available
+**Production Features:**
+- Rate limiting with express-rate-limit
+- Redis caching for performance
+- PostgreSQL for persistence
+- Winston logging
+- Prometheus metrics
+- Helmet security
 
-**Architecture:**
-We built TWO facilitator implementations to showcase different approaches:
-1. **Direct RPC** (current) - Simple, working, 100% spec-compliant
-2. **Kora RPC** (available) - Gasless, better UX, production-ready
+**3. Express Middleware** (`packages/sdk/src/middleware/`)
 
-**Implementation Files:**
-- Kora Facilitator: `packages/facilitator/src/services/x402-kora-facilitator.ts:1-350`
-- Architecture Analysis: `KORA_VS_CURRENT_IMPLEMENTATION.md`
+**Easy Integration:**
+```typescript
+import { x402Middleware } from '@402pay/sdk';
 
-**Benefits:**
-- ✅ Gasless transactions for end users
-- ✅ USDC payments without SOL requirement
-- ✅ Better UX for mainstream adoption
-- ✅ Perfect for AI agents (no SOL management)
+app.use('/api/*', x402Middleware({
+  facilitatorUrl: 'http://localhost:3001',
+  recipientWallet: 'YOUR_WALLET',
+  network: 'devnet'
+}));
+```
 
-**Documentation:** See `KORA_VS_CURRENT_IMPLEMENTATION.md` for detailed comparison of both approaches
+**4. Shared Types Package** (`packages/shared/`)
 
----
+**Type Safety:**
+- Zod schemas for all x402 types
+- TypeScript definitions
+- Validation helpers
+- Token configurations
 
-### 5️⃣ AI Agent Autonomous Marketplace (AgentForce)
-
-**Track:** Multi-Agent Systems & AI Integration
-**Implementation:** World's first agent-to-agent marketplace with real payments
-
-**Key Features:**
-- **Autonomous AI agents** that discover, hire, and pay each other
-- **6 specialized agent services** across categories (Design, Data, Content)
-- **Real Solana payments** through escrow system
-- **Coordinator agent** for multi-agent orchestration
-- **Image generation agent** for autonomous creative work
-- **Job marketplace** with automatic job acceptance and execution
-- **Reputation system** with rankings, badges, and success rates
-- **Agent-to-agent escrow** with automatic fund release on completion
-
-**Implementation Files:**
-- Coordinator Agent: `packages/facilitator/src/agents/coordinator-worker.ts:1-350`
-- Image Gen Agent: `packages/facilitator/src/agents/imagegen-worker.ts:1-200`
-- Marketplace API: `packages/facilitator/src/routes/marketplace.ts`
-- Escrow Service: `packages/facilitator/src/routes/escrow.ts`
+**What Makes It Special:**
+- ✅ **Zero-config setup** - Works out of the box
+- ✅ **Framework agnostic** - Express, Next.js, any Node.js app
+- ✅ **Production-ready** - Error handling, logging, monitoring
+- ✅ **Dual facilitators** - Choose your architecture
+- ✅ **Complete monorepo** - SDK + Facilitator + Types + MCP
 
 **Demo:**
 ```bash
-# Terminal 1: Start facilitator
+# Try the SDK
+npm install @402pay/sdk
+
+# Use in your app
+import { SolPay402 } from '@402pay/sdk';
+```
+
+**Documentation:** `packages/sdk/README.md`
+
+---
+
+### 🥇 Track 5: Best x402 Agent Application ($20,000) ⭐ PRIMARY TRACK
+**Build practical AI agent applications that use x402 for autonomous payments**
+
+#### How 402pay Qualifies:
+
+**AgentForce: World's First Autonomous Agent-to-Agent Marketplace**
+
+This is our **flagship submission** for the highest-value track ($20k).
+
+**What AgentForce Is:**
+A fully functional marketplace where AI agents autonomously:
+1. 🔍 **Discover services** - Browse 6 specialized agent services
+2. 💼 **Create jobs** - Post work requests with payment offers
+3. 🤖 **Accept jobs** - Agents autonomously poll and claim work
+4. ⚙️ **Execute work** - Real AI tasks (image generation, data analysis)
+5. 💰 **Transact autonomously** - Real Solana payments via x402
+6. 🏆 **Build reputation** - Rankings based on performance
+
+**6 Specialized Agent Services:**
+1. **Image Generation** - AI-powered image creation
+2. **Data Analysis** - Process and analyze datasets
+3. **Content Writing** - Generate articles and copy
+4. **Code Review** - Automated code analysis
+5. **Translation** - Multi-language translation
+6. **Coordination** - Orchestrate complex multi-agent tasks
+
+**Autonomous Agents:**
+
+**1. Image Generation Agent** (`packages/facilitator/src/agents/imagegen-worker.ts`)
+- Polls for image generation jobs every 5 seconds
+- Automatically accepts jobs matching criteria
+- Executes AI image generation
+- Delivers results and claims payment
+- Updates reputation score
+
+**2. Coordinator Agent** (`packages/facilitator/src/agents/coordinator-worker.ts`)
+- Meta-agent that orchestrates complex workflows
+- Breaks down complex tasks into sub-jobs
+- Hires specialized agents (like ImageGen)
+- Monitors sub-job completion
+- Aggregates results for client
+- **Demonstrates multi-agent coordination**
+
+**Real x402 Payment Flow:**
+```
+1. Client creates job: "Generate logo" - 0.02 SOL
+2. Funds locked in escrow via x402
+3. ImageGen agent polls marketplace
+4. Agent accepts job automatically
+5. Agent generates image
+6. Agent delivers result
+7. Escrow releases payment to agent
+8. Reputation updated
+```
+
+**Production Features:**
+- ✅ **Real Solana transactions** - Not simulated
+- ✅ **Escrow system** - Trustless fund management
+- ✅ **Automatic execution** - No human intervention
+- ✅ **Reputation system** - Performance-based rankings
+- ✅ **Multi-agent coordination** - Complex workflows
+- ✅ **Production dashboard** - Next.js 15 + React 19
+
+**Live Demo:**
+```bash
+# Terminal 1: Start API
 cd packages/facilitator && npm run dev
 
-# Terminal 2: Start autonomous agents
+# Terminal 2: Start Agents (they run autonomously)
 cd packages/facilitator && npm run agents:all
 
-# Terminal 3: View marketplace
+# Terminal 3: View Dashboard
 cd apps/dashboard && npm run dev
 # Visit http://localhost:3000/marketplace
 ```
 
+**Dashboard Features:**
+- 🛒 **Marketplace** - Browse and hire agents
+- 💼 **Jobs** - Track job status in real-time
+- 🏆 **Leaderboard** - See top-earning agents
+- 📊 **Analytics** - Revenue and performance metrics
+
 **What Makes This Special:**
-- Agents autonomously poll for jobs every 5-10 seconds
-- Real Solana transactions (not simulated)
-- Multi-agent coordination (Coordinator hiring Image Gen agent)
-- Performance-based reputation system
-- Production-ready escrow implementation
+1. **First autonomous agent marketplace** with real payments
+2. **Multi-agent coordination** - Agents hiring agents
+3. **Production-ready** - Actually works, not just a demo
+4. **Real economic value** - Agents earn actual SOL
+5. **Solana-native** - Built on Solana from day one
+6. **Complete ecosystem** - Marketplace + Escrow + Reputation
 
-**Documentation:** See `AGENTFORCE.md` and `AGENTFORCE_ARCHITECTURE.md` for complete technical details
+**Technical Implementation:**
+- Marketplace API: `packages/facilitator/src/routes/marketplace.ts`
+- Escrow Service: `packages/facilitator/src/routes/escrow.ts`
+- Agent Workers: `packages/facilitator/src/agents/`
+- Dashboard: `apps/dashboard/src/app/marketplace/`
 
----
-
-### 6️⃣ Next.js 15 Production Dashboard
-
-**Track:** Modern Web Development
-**Implementation:** Full-featured Stripe-like dashboard with React 19
-
-**Key Features:**
-- **Next.js 15** with App Router architecture
-- **React 19** with Server Components
-- **Tailwind CSS** for styling
-- **TanStack Query (React Query v5)** for state management
-- **Recharts** for analytics visualization
-- **Heroicons** for UI components
-- **Error boundaries** and global error handling
-- **Type-safe** with full TypeScript coverage
-
-**Dashboard Pages:**
-- 📊 **Analytics** - Revenue and transaction metrics (`apps/dashboard/src/app/analytics/`)
-- 🛒 **Marketplace** - Agent service discovery (`apps/dashboard/src/app/marketplace/`)
-- 💼 **Jobs** - Track autonomous agent jobs (`apps/dashboard/src/app/marketplace/jobs/`)
-- 🏆 **Leaderboard** - Top-earning agents (`apps/dashboard/src/app/marketplace/leaderboard/`)
-- 🔑 **API Keys** - Manage integration keys (`apps/dashboard/src/app/api-keys/`)
-- 📝 **Subscriptions** - Recurring billing management (`apps/dashboard/src/app/subscriptions/`)
-- 🤖 **Agents** - Agent wallet management (`apps/dashboard/src/app/agents/`)
-- ⚙️ **Settings** - Account configuration (`apps/dashboard/src/app/settings/`)
-
-**Implementation Files:**
-- Layout: `apps/dashboard/src/app/layout.tsx:1-42`
-- Marketplace: `apps/dashboard/src/app/marketplace/page.tsx`
-- Query Provider: `apps/dashboard/src/providers/query-provider.tsx`
-
-**Demo:**
-```bash
-cd apps/dashboard && npm run dev
-# Visit http://localhost:3000
-```
-
-**Architecture Highlights:**
-- Server-first rendering with React Server Components
-- Client-side state management with TanStack Query
-- Comprehensive error handling at multiple levels
-- Real-time updates for marketplace and agent data
+**Documentation:**
+- **`AGENTFORCE.md`** - Complete marketplace guide
+- **`AGENTFORCE_ARCHITECTURE.md`** - Technical deep dive
 
 ---
 
-## 🎯 Track Integration Summary
+## 🎯 Hackathon Track Summary
 
-| Track | Technology | Implementation Status | Lines of Code | Demo |
-|-------|------------|----------------------|---------------|------|
-| **Solana** | @solana/web3.js v1.95, SPL tokens | ✅ Production Ready | ~3,000 | ✅ Yes |
-| **MCP** | @modelcontextprotocol/sdk v1.0.4 | ✅ Full Implementation | ~400 | ✅ Yes |
-| **x402 Protocol** | HTTP 402 (Coinbase spec) | ✅ 100% Spec Compliant | ~2,500 | ✅ Yes |
-| **Kora** | Kora RPC Integration | ✅ Alternative Available | ~350 | ✅ Yes |
-| **AI Agents** | Autonomous Workers | ✅ Production Ready | ~1,500 | ✅ Yes |
-| **Next.js 15** | React 19, App Router | ✅ Production Ready | ~4,000 | ✅ Yes |
+| Prize Track | Prize | Qualification | Strength | Implementation |
+|-------------|-------|---------------|----------|----------------|
+| **Best Trustless Agent** | $10k | ✅ Complete | 🟢 Strong | AgentForce reputation + escrow |
+| **Best x402 API Integration** | $10k | ✅ Complete | 🟢 Strong | 100% spec compliant + demos |
+| **Best MCP Server** | $10k | ✅ Complete | 🟢 Strong | Production MCP with 3 tools |
+| **Best x402 Dev Tool** | $10k | ✅ Complete | 🟢 Strong | Full SDK + dual facilitators |
+| **Best x402 Agent Application** | $20k | ✅ Complete | 🟢🟢 **VERY STRONG** | AgentForce marketplace |
 
-**Total Tracks Integrated:** 6
-**Total Lines of Code:** ~15,000+
-**Test Coverage:** Core features tested
-**Production Status:** ✅ Deployment Ready
+**Total Prize Pool Eligible:** $60,000
+**Primary Target:** Track 5 ($20k) - Best x402 Agent Application
+**Secondary Targets:** All other tracks ($40k)
 
-### Key Differentiators for Submission
+### Submission Strategy
 
-1. **Only project with full MCP + x402 + Solana integration** - We're the only submission that combines all three protocols seamlessly
-2. **Real autonomous agent marketplace** - Not just a demo, agents actually work autonomously
-3. **100% x402 spec compliance** - Fully verified against official Coinbase specification
-4. **Dual facilitator implementations** - Both direct RPC and Kora architectures available
-5. **Production-ready code** - Error handling, type safety, comprehensive testing
-6. **Complete documentation** - 5 detailed markdown docs covering all aspects
+**🎯 Primary Submission: Track 5 - Best x402 Agent Application ($20k)**
+
+**Why this is our strongest track:**
+1. Most comprehensive implementation (AgentForce)
+2. Highest prize value ($20k)
+3. Demonstrates everything: agents, x402, payments, autonomy
+4. Production-ready with live demos
+5. Unique differentiator - first of its kind
+
+**🔄 Secondary Submissions: Tracks 1-4 ($10k each)**
+
+**Leverage same codebase across all tracks:**
+- Track 1: Focus on reputation system
+- Track 2: Focus on x402 compliance
+- Track 3: Focus on MCP server
+- Track 4: Focus on SDK and tooling
+
+**Competitive Advantages:**
+1. ✅ **Only project that qualifies for all 5 tracks**
+2. ✅ **Real autonomous agents** (not simulated)
+3. ✅ **Production-ready code** (~15,000 LOC)
+4. ✅ **Comprehensive documentation** (5+ detailed docs)
+5. ✅ **Live demos** for every feature
+6. ✅ **Full Solana integration** (real devnet transactions)
 
 ---
 
