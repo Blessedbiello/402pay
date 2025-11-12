@@ -19,6 +19,7 @@
     "blockchain"
   ],
   "dependencies": {
+    "@402pay/shared": "workspace:*",
     "@solana/spl-token": "^0.4.9",
     "@solana/web3.js": "^1.95.8",
     "bs58": "^6.0.0",
