@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "buildCommand": "pnpm install && pnpm build --filter=@402pay/dashboard",
+  "installCommand": "pnpm install",
+  "framework": null,
+  "outputDirectory": "apps/dashboard/.next",
+  "builds": [
+    {
+      "src": "apps/dashboard/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/apps/dashboard/$1"
+    }
+  ]
+}
