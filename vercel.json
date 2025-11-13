@@ -1,6 +1,7 @@
 {
   "buildCommand": "pnpm --filter @402pay/shared build && pnpm --filter @402pay/sdk build && pnpm --filter @402pay/dashboard build",
-  "outputDirectory": "apps/dashboard/.next",
+  "outputDirectory": ".next",
   "installCommand": "pnpm install",
-  "framework": null
+  "framework": null,
+  "rootDirectory": "apps/dashboard"
 }
