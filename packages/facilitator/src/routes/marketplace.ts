@@ -1,27 +1,20 @@
 /**
  * AgentForce Marketplace Routes
  * Service registry and discovery for agent-to-agent economy
+ *
+ * MIGRATED TO PRISMA - Replaced in-memory Maps with database persistence
  */
 
 import { Router } from 'express';
 import { z } from 'zod';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
-import {
-  AgentService,
-  JobRequest,
-  seedMarketplace,
-  getMarketplaceStats
-} from '../utils/seed-marketplace';
 
 const router = Router();
-
-// In-memory storage for demo (replace with Prisma in production)
-const services = new Map<string, AgentService>();
-const jobs = new Map<string, JobRequest>();
-
-// Seed marketplace with demo data on startup
-seedMarketplace(services, jobs);
+const prisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+});
 
 // Validation schemas
 const createServiceSchema = z.object({
@@ -49,124 +42,144 @@ const createJobSchema = z.object({
  * List all active services
  * GET /marketplace/services
  */
-router.get('/services', (req, res) => {
-  const { category, minPrice, maxPrice, sort = 'popular', limit = 20, offset = 0 } = req.query;
+router.get('/services', async (req, res) => {
+  try {
+    const { category, minPrice, maxPrice, sort = 'popular', limit = 20, offset = 0 } = req.query;
 
-  let results = Array.from(services.values()).filter(s => s.isActive);
+    // Build query filters
+    const where: Prisma.AgentServiceWhereInput = { isActive: true };
 
-  // Filter by category
-  if (category && typeof category === 'string') {
-    results = results.filter(s => s.category === category);
+    if (category && typeof category === 'string') {
+      where.category = category as any;
+    }
+
+    if (minPrice || maxPrice) {
+      where.priceAmount = {};
+      if (minPrice && typeof minPrice === 'string') {
+        where.priceAmount.gte = parseFloat(minPrice);
+      }
+      if (maxPrice && typeof maxPrice === 'string') {
+        where.priceAmount.lte = parseFloat(maxPrice);
+      }
+    }
+
+    // Build sort order
+    let orderBy: Prisma.AgentServiceOrderByWithRelationInput = {};
+    switch (sort) {
+      case 'popular':
+        orderBy = { totalJobs: 'desc' };
+        break;
+      case 'price-low':
+        orderBy = { priceAmount: 'asc' };
+        break;
+      case 'price-high':
+        orderBy = { priceAmount: 'desc' };
+        break;
+      case 'rating':
+        // For rating, we'll fetch all and sort in memory (can be optimized with computed column)
+        orderBy = { successfulJobs: 'desc' };
+        break;
+      case 'newest':
+        orderBy = { createdAt: 'desc' };
+        break;
+    }
+
+    const limitNum = parseInt(limit as string);
+    const offsetNum = parseInt(offset as string);
+
+    const [services, total] = await Promise.all([
+      prisma.agentService.findMany({
+        where,
+        orderBy,
+        take: limitNum,
+        skip: offsetNum,
+      }),
+      prisma.agentService.count({ where }),
+    ]);
+
+    res.json({
+      services,
+      total,
+      limit: limitNum,
+      offset: offsetNum,
+    });
+  } catch (error) {
+    logger.error('List services error', { error });
+    res.status(500).json({ error: 'Failed to list services' });
   }
-
-  // Filter by price range
-  if (minPrice && typeof minPrice === 'string') {
-    results = results.filter(s => s.priceAmount >= parseFloat(minPrice));
-  }
-  if (maxPrice && typeof maxPrice === 'string') {
-    results = results.filter(s => s.priceAmount <= parseFloat(maxPrice));
-  }
-
-  // Sort results
-  switch (sort) {
-    case 'popular':
-      results.sort((a, b) => b.totalJobs - a.totalJobs);
-      break;
-    case 'price-low':
-      results.sort((a, b) => a.priceAmount - b.priceAmount);
-      break;
-    case 'price-high':
-      results.sort((a, b) => b.priceAmount - a.priceAmount);
-      break;
-    case 'rating':
-      results.sort((a, b) => {
-        const ratingA = a.totalJobs > 0 ? (a.successfulJobs / a.totalJobs) * 100 : 0;
-        const ratingB = b.totalJobs > 0 ? (b.successfulJobs / b.totalJobs) * 100 : 0;
-        return ratingB - ratingA;
-      });
-      break;
-    case 'newest':
-      results.sort((a, b) => b.createdAt - a.createdAt);
-      break;
-  }
-
-  // Pagination
-  const total = results.length;
-  const limitNum = parseInt(limit as string);
-  const offsetNum = parseInt(offset as string);
-  results = results.slice(offsetNum, offsetNum + limitNum);
-
-  res.json({
-    services: results,
-    total,
-    limit: limitNum,
-    offset: offsetNum,
-  });
 });
 
 /**
  * Get service by ID
  * GET /marketplace/services/:id
  */
-router.get('/services/:id', (req, res) => {
-  const service = services.get(req.params.id);
+router.get('/services/:id', async (req, res) => {
+  try {
+    const service = await prisma.agentService.findUnique({
+      where: { id: req.params.id },
+      include: {
+        jobs: {
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          select: {
+            id: true,
+            status: true,
+            completedAt: true,
+          },
+        },
+      },
+    });
 
-  if (!service) {
-    return res.status(404).json({ error: 'Service not found' });
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    // Calculate average rating
+    const rating = service.totalJobs > 0
+      ? (service.successfulJobs / service.totalJobs) * 5
+      : 5;
+
+    res.json({
+      ...service,
+      rating,
+      recentJobs: service.jobs,
+    });
+  } catch (error) {
+    logger.error('Get service error', { error });
+    res.status(500).json({ error: 'Failed to get service' });
   }
-
-  // Calculate average rating
-  const serviceJobs = Array.from(jobs.values()).filter(j => j.serviceId === service.id);
-  const rating = service.totalJobs > 0
-    ? (service.successfulJobs / service.totalJobs) * 5
-    : 5;
-
-  res.json({
-    ...service,
-    rating,
-    recentJobs: serviceJobs.slice(-5).map(j => ({
-      id: j.id,
-      status: j.status,
-      completedAt: j.completedAt,
-    })),
-  });
 });
 
 /**
  * Create a new service
  * POST /marketplace/services
  */
-router.post('/services', (req: AuthRequest, res) => {
+router.post('/services', async (req: AuthRequest, res) => {
   try {
     const data = createServiceSchema.parse(req.body);
     const agentId = req.query.agentId as string || 'default-agent';
 
-    const serviceId = `service_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const service = await prisma.agentService.create({
+      data: {
+        agentId,
+        name: data.name,
+        description: data.description,
+        category: data.category,
+        pricingModel: data.pricingModel,
+        priceAmount: data.priceAmount,
+        priceCurrency: data.priceCurrency,
+        capabilities: data.capabilities,
+        tags: data.tags,
+        averageResponseTime: 0,
+        reliability: 100,
+        totalJobs: 0,
+        successfulJobs: 0,
+        totalEarnings: 0,
+        isActive: true,
+      },
+    });
 
-    const service: AgentService = {
-      id: serviceId,
-      agentId,
-      name: data.name,
-      description: data.description,
-      category: data.category,
-      pricingModel: data.pricingModel,
-      priceAmount: data.priceAmount,
-      priceCurrency: data.priceCurrency,
-      capabilities: data.capabilities,
-      tags: data.tags,
-      averageResponseTime: 0,
-      reliability: 100,
-      totalJobs: 0,
-      successfulJobs: 0,
-      totalEarnings: 0,
-      isActive: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    services.set(serviceId, service);
-
-    logger.info('Service created', { serviceId, agentId, name: data.name });
+    logger.info('Service created', { serviceId: service.id, agentId, name: data.name });
 
     res.status(201).json(service);
   } catch (error) {
@@ -182,48 +195,67 @@ router.post('/services', (req: AuthRequest, res) => {
  * Update a service
  * PATCH /marketplace/services/:id
  */
-router.patch('/services/:id', (req: AuthRequest, res) => {
-  const service = services.get(req.params.id);
+router.patch('/services/:id', async (req: AuthRequest, res) => {
+  try {
+    const service = await prisma.agentService.findUnique({
+      where: { id: req.params.id },
+    });
 
-  if (!service) {
-    return res.status(404).json({ error: 'Service not found' });
-  }
-
-  // Update allowed fields
-  const allowedUpdates = ['name', 'description', 'priceAmount', 'isActive', 'tags'];
-  allowedUpdates.forEach(field => {
-    if (req.body[field] !== undefined) {
-      (service as any)[field] = req.body[field];
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
     }
-  });
 
-  service.updatedAt = Date.now();
-  services.set(req.params.id, service);
+    // Build update data with only allowed fields
+    const updateData: Prisma.AgentServiceUpdateInput = {};
+    const allowedUpdates = ['name', 'description', 'priceAmount', 'isActive', 'tags'];
 
-  logger.info('Service updated', { serviceId: req.params.id });
+    allowedUpdates.forEach(field => {
+      if (req.body[field] !== undefined) {
+        updateData[field as keyof Prisma.AgentServiceUpdateInput] = req.body[field];
+      }
+    });
 
-  res.json(service);
+    const updated = await prisma.agentService.update({
+      where: { id: req.params.id },
+      data: updateData,
+    });
+
+    logger.info('Service updated', { serviceId: req.params.id });
+
+    res.json(updated);
+  } catch (error) {
+    logger.error('Update service error', { error });
+    res.status(500).json({ error: 'Failed to update service' });
+  }
 });
 
 /**
  * Delete/deactivate a service
  * DELETE /marketplace/services/:id
  */
-router.delete('/services/:id', (req: AuthRequest, res) => {
-  const service = services.get(req.params.id);
+router.delete('/services/:id', async (req: AuthRequest, res) => {
+  try {
+    const service = await prisma.agentService.findUnique({
+      where: { id: req.params.id },
+    });
 
-  if (!service) {
-    return res.status(404).json({ error: 'Service not found' });
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    // Soft delete - just deactivate
+    await prisma.agentService.update({
+      where: { id: req.params.id },
+      data: { isActive: false },
+    });
+
+    logger.info('Service deactivated', { serviceId: req.params.id });
+
+    res.status(204).send();
+  } catch (error) {
+    logger.error('Delete service error', { error });
+    res.status(500).json({ error: 'Failed to delete service' });
   }
-
-  // Soft delete - just deactivate
-  service.isActive = false;
-  service.updatedAt = Date.now();
-  services.set(req.params.id, service);
-
-  logger.info('Service deactivated', { serviceId: req.params.id });
-
-  res.status(204).send();
 });
 
 // ============================================================================
@@ -233,21 +265,16 @@ router.delete('/services/:id', (req: AuthRequest, res) => {
 /**
  * Create a job request
  * POST /marketplace/jobs
- *
- * NOTE: In production, this would integrate with the escrow system:
- * 1. Frontend would create escrow via 402pay SDK (client-side signing)
- * 2. Pass escrowAddress in request body
- * 3. Verify escrow was funded before accepting job
- *
- * For this demo, escrow creation is optional - existing demo data
- * works without escrow, but new jobs can include escrow.
  */
-router.post('/jobs', (req: AuthRequest, res) => {
+router.post('/jobs', async (req: AuthRequest, res) => {
   try {
     const data = createJobSchema.parse(req.body);
     const clientAgentId = req.query.agentId as string || 'default-client';
 
-    const service = services.get(data.serviceId);
+    const service = await prisma.agentService.findUnique({
+      where: { id: data.serviceId },
+    });
+
     if (!service) {
       return res.status(404).json({ error: 'Service not found' });
     }
@@ -256,29 +283,28 @@ router.post('/jobs', (req: AuthRequest, res) => {
       return res.status(400).json({ error: 'Service is not active' });
     }
 
-    const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    const deadline = data.deadline || Date.now() + 24 * 60 * 60 * 1000; // 24 hours default
+    const deadline = data.deadline
+      ? new Date(data.deadline)
+      : new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours default
 
-    const job: JobRequest = {
-      id: jobId,
-      clientAgentId,
-      serviceId: service.id,
-      providerAgentId: service.agentId,
-      status: 'pending',
-      input: data.input,
-      paymentAmount: service.priceAmount,
-      paymentCurrency: service.priceCurrency,
-      escrowStatus: req.body.escrowAddress ? 'escrowed' : 'pending',
-      escrowAddress: req.body.escrowAddress, // Optional: Set by client after creating escrow
-      escrowTransactionId: req.body.escrowTransactionId, // Optional: Initial funding tx
-      createdAt: Date.now(),
-      deadline,
-    };
-
-    jobs.set(jobId, job);
+    const job = await prisma.jobRequest.create({
+      data: {
+        clientAgentId,
+        serviceId: service.id,
+        providerAgentId: service.agentId,
+        status: 'pending',
+        input: data.input as Prisma.InputJsonValue,
+        paymentAmount: service.priceAmount,
+        paymentCurrency: service.priceCurrency,
+        escrowStatus: req.body.escrowAddress ? 'escrowed' : 'pending',
+        escrowAddress: req.body.escrowAddress,
+        escrowTransactionId: req.body.escrowTransactionId,
+        deadline,
+      },
+    });
 
     logger.info('Job created', {
-      jobId,
+      jobId: job.id,
       serviceId: service.id,
       clientAgentId,
       hasEscrow: !!req.body.escrowAddress,
@@ -298,107 +324,151 @@ router.post('/jobs', (req: AuthRequest, res) => {
  * Get job by ID
  * GET /marketplace/jobs/:id
  */
-router.get('/jobs/:id', (req, res) => {
-  const job = jobs.get(req.params.id);
+router.get('/jobs/:id', async (req, res) => {
+  try {
+    const job = await prisma.jobRequest.findUnique({
+      where: { id: req.params.id },
+      include: {
+        service: {
+          select: {
+            name: true,
+            category: true,
+          },
+        },
+      },
+    });
 
-  if (!job) {
-    return res.status(404).json({ error: 'Job not found' });
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    res.json(job);
+  } catch (error) {
+    logger.error('Get job error', { error });
+    res.status(500).json({ error: 'Failed to get job' });
   }
-
-  res.json(job);
 });
 
 /**
  * List jobs
  * GET /marketplace/jobs
  */
-router.get('/jobs', (req, res) => {
-  const { status, agentId, asProvider, limit = 20, offset = 0 } = req.query;
+router.get('/jobs', async (req, res) => {
+  try {
+    const { status, agentId, asProvider, limit = 20, offset = 0 } = req.query;
 
-  let results = Array.from(jobs.values());
+    const where: Prisma.JobRequestWhereInput = {};
 
-  // Filter by status
-  if (status && typeof status === 'string') {
-    results = results.filter(j => j.status === status);
-  }
-
-  // Filter by agent (either as client or provider)
-  if (agentId && typeof agentId === 'string') {
-    if (asProvider === 'true') {
-      results = results.filter(j => j.providerAgentId === agentId);
-    } else {
-      results = results.filter(j => j.clientAgentId === agentId);
+    if (status && typeof status === 'string') {
+      where.status = status;
     }
+
+    if (agentId && typeof agentId === 'string') {
+      if (asProvider === 'true') {
+        where.providerAgentId = agentId;
+      } else {
+        where.clientAgentId = agentId;
+      }
+    }
+
+    const limitNum = parseInt(limit as string);
+    const offsetNum = parseInt(offset as string);
+
+    const [jobs, total] = await Promise.all([
+      prisma.jobRequest.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limitNum,
+        skip: offsetNum,
+      }),
+      prisma.jobRequest.count({ where }),
+    ]);
+
+    res.json({
+      jobs,
+      total,
+      limit: limitNum,
+      offset: offsetNum,
+    });
+  } catch (error) {
+    logger.error('List jobs error', { error });
+    res.status(500).json({ error: 'Failed to list jobs' });
   }
-
-  // Sort by creation date (newest first)
-  results.sort((a, b) => b.createdAt - a.createdAt);
-
-  // Pagination
-  const total = results.length;
-  const limitNum = parseInt(limit as string);
-  const offsetNum = parseInt(offset as string);
-  results = results.slice(offsetNum, offsetNum + limitNum);
-
-  res.json({
-    jobs: results,
-    total,
-    limit: limitNum,
-    offset: offsetNum,
-  });
 });
 
 /**
  * Accept a job (provider)
  * POST /marketplace/jobs/:id/accept
  */
-router.post('/jobs/:id/accept', (req: AuthRequest, res) => {
-  const job = jobs.get(req.params.id);
+router.post('/jobs/:id/accept', async (req: AuthRequest, res) => {
+  try {
+    const job = await prisma.jobRequest.findUnique({
+      where: { id: req.params.id },
+    });
 
-  if (!job) {
-    return res.status(404).json({ error: 'Job not found' });
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (job.status !== 'pending') {
+      return res.status(400).json({ error: 'Job is not in pending status' });
+    }
+
+    const updated = await prisma.jobRequest.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'accepted',
+        acceptedAt: new Date(),
+      },
+    });
+
+    logger.info('Job accepted', { jobId: req.params.id, providerAgentId: job.providerAgentId });
+
+    res.json(updated);
+  } catch (error) {
+    logger.error('Accept job error', { error });
+    res.status(500).json({ error: 'Failed to accept job' });
   }
-
-  if (job.status !== 'pending') {
-    return res.status(400).json({ error: 'Job is not in pending status' });
-  }
-
-  job.status = 'accepted';
-  job.acceptedAt = Date.now();
-  jobs.set(req.params.id, job);
-
-  logger.info('Job accepted', { jobId: req.params.id, providerAgentId: job.providerAgentId });
-
-  res.json(job);
 });
 
 /**
  * Submit job output (provider)
  * POST /marketplace/jobs/:id/submit
  */
-router.post('/jobs/:id/submit', (req: AuthRequest, res) => {
-  const job = jobs.get(req.params.id);
+router.post('/jobs/:id/submit', async (req: AuthRequest, res) => {
+  try {
+    const job = await prisma.jobRequest.findUnique({
+      where: { id: req.params.id },
+    });
 
-  if (!job) {
-    return res.status(404).json({ error: 'Job not found' });
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (job.status !== 'accepted' && job.status !== 'in_progress') {
+      return res.status(400).json({ error: 'Job cannot be submitted in current status' });
+    }
+
+    if (!req.body.output) {
+      return res.status(400).json({ error: 'Output is required' });
+    }
+
+    const updated = await prisma.jobRequest.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'completed',
+        output: req.body.output as Prisma.InputJsonValue,
+        completedAt: new Date(),
+      },
+    });
+
+    logger.info('Job completed', { jobId: req.params.id });
+
+    res.json(updated);
+  } catch (error) {
+    logger.error('Submit job error', { error });
+    res.status(500).json({ error: 'Failed to submit job' });
   }
-
-  if (job.status !== 'accepted' && job.status !== 'in_progress') {
-    return res.status(400).json({ error: 'Job cannot be submitted in current status' });
-  }
-
-  if (!req.body.output) {
-    return res.status(400).json({ error: 'Output is required' });
-  }
-
-  job.status = 'completed';
-  job.output = req.body.output;
-  job.completedAt = Date.now();
-  jobs.set(req.params.id, job);
-
-  logger.info('Job completed', { jobId: req.params.id });
-
-  res.json(job);
 });
 
 /**
@@ -406,113 +476,132 @@ router.post('/jobs/:id/submit', (req: AuthRequest, res) => {
  * POST /marketplace/jobs/:id/approve
  */
 router.post('/jobs/:id/approve', async (req: AuthRequest, res) => {
-  const job = jobs.get(req.params.id);
+  try {
+    const job = await prisma.jobRequest.findUnique({
+      where: { id: req.params.id },
+      include: { service: true },
+    });
 
-  if (!job) {
-    return res.status(404).json({ error: 'Job not found' });
-  }
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
 
-  if (job.status !== 'completed') {
-    return res.status(400).json({ error: 'Job is not completed' });
-  }
+    if (job.status !== 'completed') {
+      return res.status(400).json({ error: 'Job is not completed' });
+    }
 
-  // Release escrow funds if escrow exists
-  let releaseSignature: string | undefined;
-  if (job.escrowAddress && job.escrowStatus === 'escrowed') {
-    try {
-      // Call escrow release endpoint
-      const escrowResponse = await fetch(`http://localhost:3001/escrow/job/${job.id}`, {
-        headers: {
-          'x-api-key': req.headers['x-api-key'] as string || 'demo-key',
-        },
-      });
-
-      if (escrowResponse.ok) {
-        const escrow = await escrowResponse.json();
-
-        // Release funds to provider
-        const releaseResponse = await fetch(`http://localhost:3001/escrow/${escrow.id}/release`, {
-          method: 'POST',
+    // Release escrow funds if escrow exists
+    let releaseSignature: string | undefined;
+    if (job.escrowAddress && job.escrowStatus === 'escrowed') {
+      try {
+        const escrowResponse = await fetch(`http://localhost:3001/escrow/job/${job.id}`, {
           headers: {
-            'Content-Type': 'application/json',
             'x-api-key': req.headers['x-api-key'] as string || 'demo-key',
           },
-          body: JSON.stringify({
-            recipient: job.providerAgentId,
-          }),
         });
 
-        if (releaseResponse.ok) {
-          const releaseResult = await releaseResponse.json();
-          releaseSignature = releaseResult.signature;
-          logger.info('Escrow released', {
-            jobId: job.id,
-            escrowId: escrow.id,
-            signature: releaseSignature,
+        if (escrowResponse.ok) {
+          const escrow = await escrowResponse.json();
+
+          const releaseResponse = await fetch(`http://localhost:3001/escrow/${escrow.id}/release`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': req.headers['x-api-key'] as string || 'demo-key',
+            },
+            body: JSON.stringify({
+              recipient: job.providerAgentId,
+            }),
           });
-        } else {
-          logger.error('Failed to release escrow', { jobId: job.id });
+
+          if (releaseResponse.ok) {
+            const releaseResult = await releaseResponse.json();
+            releaseSignature = releaseResult.signature;
+            logger.info('Escrow released', {
+              jobId: job.id,
+              escrowId: escrow.id,
+              signature: releaseSignature,
+            });
+          }
         }
+      } catch (error) {
+        logger.error('Error releasing escrow', { error, jobId: job.id });
       }
-    } catch (error) {
-      logger.error('Error releasing escrow', { error, jobId: job.id });
-      // Continue with approval even if escrow release fails (for demo data compatibility)
     }
+
+    // Use transaction to update both job and service atomically
+    const [updatedJob, updatedService] = await prisma.$transaction([
+      prisma.jobRequest.update({
+        where: { id: req.params.id },
+        data: {
+          status: 'approved',
+          approvedAt: new Date(),
+          escrowStatus: 'released',
+          escrowTransactionId: releaseSignature || job.escrowTransactionId,
+        },
+      }),
+      prisma.agentService.update({
+        where: { id: job.serviceId },
+        data: {
+          totalJobs: { increment: 1 },
+          successfulJobs: { increment: 1 },
+          totalEarnings: { increment: job.paymentAmount },
+        },
+      }),
+    ]);
+
+    logger.info('Job approved', {
+      jobId: req.params.id,
+      amount: job.paymentAmount,
+      releaseSignature,
+    });
+
+    res.json(updatedJob);
+  } catch (error) {
+    logger.error('Approve job error', { error });
+    res.status(500).json({ error: 'Failed to approve job' });
   }
-
-  job.status = 'approved';
-  job.approvedAt = Date.now();
-  job.escrowStatus = 'released';
-  if (releaseSignature) {
-    job.escrowTransactionId = releaseSignature;
-  }
-  jobs.set(req.params.id, job);
-
-  // Update service stats
-  const service = services.get(job.serviceId);
-  if (service) {
-    service.totalJobs += 1;
-    service.successfulJobs += 1;
-    service.totalEarnings += job.paymentAmount;
-    services.set(job.serviceId, service);
-  }
-
-  logger.info('Job approved', {
-    jobId: req.params.id,
-    amount: job.paymentAmount,
-    releaseSignature,
-  });
-
-  res.json(job);
 });
 
 /**
  * Dispute job (client)
  * POST /marketplace/jobs/:id/dispute
  */
-router.post('/jobs/:id/dispute', (req: AuthRequest, res) => {
-  const job = jobs.get(req.params.id);
+router.post('/jobs/:id/dispute', async (req: AuthRequest, res) => {
+  try {
+    const job = await prisma.jobRequest.findUnique({
+      where: { id: req.params.id },
+    });
 
-  if (!job) {
-    return res.status(404).json({ error: 'Job not found' });
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (job.status !== 'completed') {
+      return res.status(400).json({ error: 'Can only dispute completed jobs' });
+    }
+
+    const reason = req.body.reason;
+    if (!reason) {
+      return res.status(400).json({ error: 'Dispute reason is required' });
+    }
+
+    const updated = await prisma.jobRequest.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'disputed',
+        escrowStatus: 'disputed',
+        metadata: { disputeReason: reason },
+      },
+    });
+
+    logger.warn('Job disputed', { jobId: req.params.id, reason });
+
+    res.json({ ...updated, disputeReason: reason });
+  } catch (error) {
+    logger.error('Dispute job error', { error });
+    res.status(500).json({ error: 'Failed to dispute job' });
   }
-
-  if (job.status !== 'completed') {
-    return res.status(400).json({ error: 'Can only dispute completed jobs' });
-  }
-
-  const reason = req.body.reason;
-  if (!reason) {
-    return res.status(400).json({ error: 'Dispute reason is required' });
-  }
-
-  job.status = 'disputed';
-  job.escrowStatus = 'disputed';
-  jobs.set(req.params.id, job);
-
-  logger.warn('Job disputed', { jobId: req.params.id, reason });
-
-  res.json({ ...job, disputeReason: reason });
 });
 
 // ============================================================================
@@ -523,69 +612,120 @@ router.post('/jobs/:id/dispute', (req: AuthRequest, res) => {
  * Get marketplace stats
  * GET /marketplace/stats
  */
-router.get('/stats', (req, res) => {
-  const allJobs = Array.from(jobs.values());
-  const allServices = Array.from(services.values());
+router.get('/stats', async (req, res) => {
+  try {
+    const [
+      totalServices,
+      totalJobs,
+      completedJobs,
+      volumeData,
+      uniqueAgents,
+    ] = await Promise.all([
+      prisma.agentService.count({ where: { isActive: true } }),
+      prisma.jobRequest.count(),
+      prisma.jobRequest.count({ where: { status: 'approved' } }),
+      prisma.jobRequest.aggregate({
+        where: { status: 'approved' },
+        _sum: { paymentAmount: true },
+      }),
+      prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(DISTINCT agent_id) as count FROM (
+          SELECT agent_id FROM agent_services
+          UNION
+          SELECT client_agent_id as agent_id FROM job_requests
+          UNION
+          SELECT provider_agent_id as agent_id FROM job_requests
+        ) AS all_agents
+      `,
+    ]);
 
-  const stats = {
-    totalServices: allServices.filter(s => s.isActive).length,
-    totalJobs: allJobs.length,
-    completedJobs: allJobs.filter(j => j.status === 'approved').length,
-    totalVolume: allJobs
-      .filter(j => j.status === 'approved')
-      .reduce((sum, j) => sum + j.paymentAmount, 0),
-    activeAgents: new Set([
-      ...allServices.map(s => s.agentId),
-      ...allJobs.map(j => j.clientAgentId),
-      ...allJobs.map(j => j.providerAgentId),
-    ]).size,
-  };
+    const stats = {
+      totalServices,
+      totalJobs,
+      completedJobs,
+      totalVolume: volumeData._sum.paymentAmount || 0,
+      activeAgents: Number(uniqueAgents[0]?.count || 0),
+    };
 
-  res.json(stats);
+    res.json(stats);
+  } catch (error) {
+    logger.error('Get stats error', { error });
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
 });
 
 /**
  * Get top earning services
  * GET /marketplace/leaderboard
  */
-router.get('/leaderboard', (req, res) => {
-  const { limit = 10 } = req.query;
+router.get('/leaderboard', async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
 
-  const topServices = Array.from(services.values())
-    .filter(s => s.isActive)
-    .sort((a, b) => b.totalEarnings - a.totalEarnings)
-    .slice(0, parseInt(limit as string))
-    .map(s => ({
-      id: s.id,
-      name: s.name,
-      agentId: s.agentId,
-      category: s.category,
-      totalEarnings: s.totalEarnings,
-      totalJobs: s.totalJobs,
+    const topServices = await prisma.agentService.findMany({
+      where: { isActive: true },
+      orderBy: { totalEarnings: 'desc' },
+      take: parseInt(limit as string),
+      select: {
+        id: true,
+        name: true,
+        agentId: true,
+        category: true,
+        totalEarnings: true,
+        totalJobs: true,
+        successfulJobs: true,
+      },
+    });
+
+    const leaderboard = topServices.map(s => ({
+      ...s,
       successRate: s.totalJobs > 0 ? (s.successfulJobs / s.totalJobs) * 100 : 0,
       rating: s.totalJobs > 0 ? (s.successfulJobs / s.totalJobs) * 5 : 5,
     }));
 
-  res.json({ leaderboard: topServices });
+    res.json({ leaderboard });
+  } catch (error) {
+    logger.error('Get leaderboard error', { error });
+    res.status(500).json({ error: 'Failed to get leaderboard' });
+  }
 });
 
 /**
- * Re-seed marketplace with demo data
+ * Seed marketplace with demo data
  * POST /marketplace/seed
  */
-router.post('/seed', (req: AuthRequest, res) => {
+router.post('/seed', async (req: AuthRequest, res) => {
   try {
-    seedMarketplace(services, jobs);
-    const stats = getMarketplaceStats(services, jobs);
+    // Import seed data
+    const { seedMarketplaceDB } = await import('../utils/seed-marketplace-db');
+
+    await seedMarketplaceDB(prisma);
+
+    const stats = await prisma.$transaction([
+      prisma.agentService.count({ where: { isActive: true } }),
+      prisma.jobRequest.count(),
+    ]);
 
     res.json({
-      message: 'Marketplace re-seeded successfully',
-      stats,
+      message: 'Marketplace seeded successfully',
+      stats: {
+        services: stats[0],
+        jobs: stats[1],
+      },
     });
   } catch (error) {
-    logger.error('Re-seed error', { error });
-    res.status(500).json({ error: 'Failed to re-seed marketplace' });
+    logger.error('Seed marketplace error', { error });
+    res.status(500).json({ error: 'Failed to seed marketplace' });
   }
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  await prisma.$disconnect();
+});
+
+process.on('SIGINT', async () => {
+  await prisma.$disconnect();
 });
 
 export { router as marketplaceRouter };

@@ -43,12 +43,35 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
+// CORS configuration - secure defaults
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').filter(Boolean) || [
+  'http://localhost:3000', // Dashboard (dev)
+  'http://localhost:3001', // Facilitator (dev)
+];
+
+if (!process.env.ALLOWED_ORIGINS && NODE_ENV === 'production') {
+  logger.error('ALLOWED_ORIGINS not set in production! Using restrictive defaults.');
+}
+
 const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (like mobile apps or curl requests) in development only
+    if (!origin && NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+
+    if (origin && allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      logger.warn('CORS request blocked', { origin, allowedOrigins });
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200,
+  maxAge: 86400, // Cache preflight for 24 hours
 };
+
 app.use(cors(corsOptions));
 
 // Body parsing middleware with size limits
