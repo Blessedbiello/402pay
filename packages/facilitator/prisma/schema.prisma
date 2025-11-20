@@ -25,6 +25,8 @@ model ApiKey {
 
   @@index([userId])
   @@index([key])
+  @@index([userId, revoked]) // Fast active key lookup per user
+  @@index([revoked, expiresAt]) // Cleanup expired/revoked keys
   @@map("api_keys")
 }
 
@@ -89,6 +91,8 @@ model Subscription {
   @@index([agentId])
   @@index([walletAddress])
   @@index([status])
+  @@index([status, currentPeriodEnd]) // Expiry checks and renewal processing
+  @@index([agentId, status]) // User's active subscriptions
   @@map("subscriptions")
 }
 
@@ -131,6 +135,10 @@ model Transaction {
   @@index([signature])
   @@index([nonce])
   @@index([timestamp])
+  @@index([payer, timestamp]) // Dashboard transaction history
+  @@index([recipient, status]) // Recipient's confirmed payments
+  @@index([timestamp, status]) // Recent transactions by status
+  @@index([agentId, timestamp]) // Agent payment history
   @@map("transactions")
 }
 
@@ -148,6 +156,8 @@ model AnalyticsEvent {
   @@index([type])
   @@index([agentId])
   @@index([timestamp])
+  @@index([type, timestamp]) // Analytics queries by type over time
+  @@index([agentId, type, timestamp]) // Agent-specific analytics
   @@map("analytics_events")
 }
 
@@ -205,6 +215,10 @@ model AgentService {
   @@index([agentId])
   @@index([category])
   @@index([isActive])
+  @@index([category, isActive]) // Marketplace category browsing
+  @@index([isActive, totalJobs]) // Popular services (most jobs)
+  @@index([isActive, totalEarnings]) // Leaderboard (top earners)
+  @@index([isActive, priceAmount]) // Price filtering
   @@map("agent_services")
 }
 
@@ -250,6 +264,11 @@ model JobRequest {
   @@index([serviceId])
   @@index([status])
   @@index([createdAt])
+  @@index([status, createdAt]) // Job listing sorted by creation
+  @@index([clientAgentId, status]) // Client's jobs by status
+  @@index([providerAgentId, status]) // Provider's jobs by status
+  @@index([status, deadline]) // Overdue job detection
+  @@index([escrowStatus, status]) // Escrow management queries
   @@map("job_requests")
 }
 

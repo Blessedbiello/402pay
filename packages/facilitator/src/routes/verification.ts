@@ -223,14 +223,72 @@ async function validateTransactionDetails(
       // For SPL token transfers, verify the instruction details
       const instructions = tx.transaction?.message?.instructions || [];
       let foundTransfer = false;
+      let validatedAmount = false;
+
+      const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 
       for (const instruction of instructions) {
         // Check if this is a token transfer instruction
-        if (instruction.programId?.toBase58() === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') {
-          // Parse SPL token transfer
-          // This is a simplified check - in production, parse the instruction data properly
+        if (instruction.programId?.toBase58() === TOKEN_PROGRAM_ID) {
           foundTransfer = true;
-          break;
+
+          // Parse SPL token transfer instruction data
+          // SPL Token Transfer instruction format:
+          // - Instruction discriminator: 3 (1 byte for Transfer)
+          // - Amount: u64 (8 bytes)
+          const data = instruction.data;
+
+          if (data && data.length >= 9) {
+            // First byte should be 3 (Transfer instruction)
+            const instructionType = data[0];
+
+            if (instructionType === 3) {
+              // Extract amount (little-endian u64, bytes 1-8)
+              const amountBuffer = Buffer.from(data.slice(1, 9));
+              const actualAmount = amountBuffer.readBigUInt64LE(0);
+
+              // Verify amount matches proof
+              if (Number(actualAmount) === expectedAmount) {
+                validatedAmount = true;
+              } else {
+                return {
+                  valid: false,
+                  error: `Amount mismatch: expected ${expectedAmount}, got ${actualAmount}`,
+                  code: ERROR_CODES.AMOUNT_MISMATCH,
+                };
+              }
+
+              // Verify accounts in instruction
+              // accounts[0]: source token account
+              // accounts[1]: destination token account
+              // accounts[2]: source owner
+              const accounts = instruction.accounts || [];
+
+              if (accounts.length < 2) {
+                return {
+                  valid: false,
+                  error: 'Invalid token transfer instruction structure',
+                  code: ERROR_CODES.TRANSACTION_FAILED,
+                };
+              }
+
+              // Verify payer is the signer
+              const signers = tx.transaction?.message?.accountKeys || [];
+              const payerFound = signers.some((key: any) =>
+                key.toBase58() === proof.payer
+              );
+
+              if (!payerFound) {
+                return {
+                  valid: false,
+                  error: 'Payer is not a signer of the transaction',
+                  code: ERROR_CODES.INVALID_SIGNATURE,
+                };
+              }
+
+              break;
+            }
+          }
         }
       }
 
@@ -238,6 +296,14 @@ async function validateTransactionDetails(
         return {
           valid: false,
           error: 'No token transfer instruction found',
+          code: ERROR_CODES.TRANSACTION_FAILED,
+        };
+      }
+
+      if (!validatedAmount) {
+        return {
+          valid: false,
+          error: 'Token transfer amount could not be validated',
           code: ERROR_CODES.TRANSACTION_FAILED,
         };
       }
