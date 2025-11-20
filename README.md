@@ -166,14 +166,14 @@ graph TB
     end
 
     subgraph "SDK Layer"
-        SDK[@402pay/sdk<br/>TypeScript]
+        SDK["@402pay/sdk (TypeScript)"]
         SolPay[SolPay402 Client]
         X402[X402Client]
         Middleware[Express Middleware]
     end
 
     subgraph "Facilitator Layer"
-        API[Facilitator API<br/>Express + TypeScript]
+        API["Facilitator API (Express + TypeScript)"]
         X402Engine[x402 Protocol Engine]
         Escrow[Escrow Service]
         Analytics[Analytics Pipeline]
@@ -181,7 +181,7 @@ graph TB
     end
 
     subgraph "Data Layer"
-        Solana[Solana Blockchain<br/>Devnet/Mainnet]
+        Solana["Solana Blockchain (Devnet/Mainnet)"]
         Redis[(Redis Cache)]
         Postgres[(PostgreSQL)]
     end
@@ -226,14 +226,14 @@ sequenceDiagram
     participant Solana
 
     Client->>API: GET /api/premium
-    API->>Client: 402 Payment Required<br/>+ PaymentRequirements
+    API->>Client: 402 Payment Required + PaymentRequirements
 
-    Note over Client: Create & Sign<br/>Transaction
+    Note over Client: Create & Sign Transaction
 
     Client->>Solana: Submit Transaction
     Solana->>Client: Signature
 
-    Client->>API: GET /api/premium<br/>+ X-PAYMENT header
+    Client->>API: GET /api/premium + X-PAYMENT header
     API->>Facilitator: POST /verify (proof)
     Facilitator->>Solana: Verify on-chain
     Solana->>Facilitator: Transaction confirmed
@@ -248,15 +248,15 @@ sequenceDiagram
 ```mermaid
 graph LR
     subgraph "Packages"
-        SDK[sdk/<br/>Client Library]
-        Facilitator[facilitator/<br/>Backend Services]
-        MCP[mcp-server/<br/>AI Integration]
-        Shared[shared/<br/>Types & Utils]
+        SDK["sdk/ (Client Library)"]
+        Facilitator["facilitator/ (Backend Services)"]
+        MCP["mcp-server/ (AI Integration)"]
+        Shared["shared/ (Types & Utils)"]
     end
 
     subgraph "Apps"
-        Dashboard[dashboard/<br/>Next.js 15]
-        Demo[demo-api/<br/>Example Service]
+        Dashboard["dashboard/ (Next.js 15)"]
+        Demo["demo-api/ (Example Service)"]
     end
 
     SDK --> Shared
