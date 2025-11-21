@@ -75,3 +75,10 @@ claude.md
 .cursor/
 *.anthropic
 *-ai-*.md
+
+# Railway
+.railway/*
+!.railway/*.template
+!.railway/README.md
+!.railway/setup.sh
+.railway/state.json

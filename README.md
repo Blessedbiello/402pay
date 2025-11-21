@@ -722,6 +722,48 @@ await solpay.escrow.create({
 
 ## 🚢 Deployment
 
+### Railway Deployment (Recommended for Free Tier)
+
+**Deploy the complete 402pay stack in under 10 minutes** - no separate services needed!
+
+Railway provides everything in one platform:
+- ✅ Facilitator API (Express)
+- ✅ Dashboard (Next.js)
+- ✅ PostgreSQL (500MB free)
+- ✅ Redis (100MB free)
+- ✅ **$5/month free credit** - covers demo/MVP
+
+#### Quick Start
+
+1. **Sign up** at [railway.app](https://railway.app)
+2. **Create project** from GitHub repo
+3. **Add services**: PostgreSQL, Redis, facilitator-api, dashboard
+4. **Configure** environment variables
+5. **Deploy!** 🚀
+
+```bash
+# Optional: Use Railway CLI for faster setup
+npm install -g @railway/cli
+railway login
+railway init
+
+# Run automated setup
+./.railway/setup.sh
+```
+
+📖 **[Railway Quick Start (10 min) →](./RAILWAY_QUICK_START.md)**
+📖 **[Complete Railway Guide →](./RAILWAY_DEPLOYMENT.md)**
+📖 **[Platform Comparison (Railway vs Vercel) →](./docs/PLATFORM_COMPARISON.md)**
+
+**Why Railway?**
+- One platform for everything (no external DB/Redis needed)
+- Perfect for monorepos with pnpm workspaces
+- Long-running Express processes (no serverless limits)
+- Internal networking (faster, more secure)
+- Free tier sufficient for demos
+
+---
+
 ### Docker Deployment
 
 ```bash
