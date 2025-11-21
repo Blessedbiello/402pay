@@ -1,6 +1,6 @@
 {
-  "buildCommand": "pnpm --filter @402pay/shared build && pnpm --filter @402pay/sdk build && pnpm --filter @402pay/dashboard build && cp -r apps/dashboard/.next .next",
-  "outputDirectory": ".next",
+  "buildCommand": "turbo build --filter=@402pay/dashboard",
   "installCommand": "pnpm install",
-  "framework": null
+  "framework": "nextjs",
+  "rootDirectory": "apps/dashboard"
 }
