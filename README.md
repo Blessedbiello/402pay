@@ -158,30 +158,30 @@ cd apps/dashboard && pnpm run dev
 
 ```mermaid
 graph TB
-    subgraph "Client Layer"
+    subgraph ClientLayer["Client Layer"]
         WebApp[Web Applications]
         AI[AI Agents]
         Mobile[Mobile Apps]
         CLI[CLI Tools]
     end
 
-    subgraph "SDK Layer"
-        SDK["@402pay/sdk (TypeScript)"]
+    subgraph SDKLayer["SDK Layer"]
+        SDK[402pay SDK TypeScript]
         SolPay[SolPay402 Client]
         X402[X402Client]
         Middleware[Express Middleware]
     end
 
-    subgraph "Facilitator Layer"
-        API["Facilitator API (Express + TypeScript)"]
+    subgraph FacilitatorLayer["Facilitator Layer"]
+        API[Facilitator API Express TypeScript]
         X402Engine[x402 Protocol Engine]
         Escrow[Escrow Service]
         Analytics[Analytics Pipeline]
         Verification[Verification Engine]
     end
 
-    subgraph "Data Layer"
-        Solana["Solana Blockchain (Devnet/Mainnet)"]
+    subgraph DataLayer["Data Layer"]
+        Solana[Solana Blockchain Devnet Mainnet]
         Redis[(Redis Cache)]
         Postgres[(PostgreSQL)]
     end
@@ -226,37 +226,37 @@ sequenceDiagram
     participant Solana
 
     Client->>API: GET /api/premium
-    API->>Client: 402 Payment Required + PaymentRequirements
+    API->>Client: 402 Payment Required
 
-    Note over Client: Create & Sign Transaction
+    Note over Client: Create and Sign Transaction
 
     Client->>Solana: Submit Transaction
     Solana->>Client: Signature
 
-    Client->>API: GET /api/premium + X-PAYMENT header
-    API->>Facilitator: POST /verify (proof)
+    Client->>API: GET /api/premium with X-PAYMENT header
+    API->>Facilitator: POST /verify proof
     Facilitator->>Solana: Verify on-chain
     Solana->>Facilitator: Transaction confirmed
-    Facilitator->>API: {valid: true}
-    API->>Client: 200 OK + Content
+    Facilitator->>API: valid true
+    API->>Client: 200 OK with Content
 
-    Note over Client,Solana: Total: ~2-3 seconds
+    Note over Client,Solana: Total approximately 2-3 seconds
 ```
 
 ### Component Architecture
 
 ```mermaid
 graph LR
-    subgraph "Packages"
-        SDK["sdk/ (Client Library)"]
-        Facilitator["facilitator/ (Backend Services)"]
-        MCP["mcp-server/ (AI Integration)"]
-        Shared["shared/ (Types & Utils)"]
+    subgraph Packages
+        SDK[sdk Client Library]
+        Facilitator[facilitator Backend Services]
+        MCP[mcp-server AI Integration]
+        Shared[shared Types and Utils]
     end
 
-    subgraph "Apps"
-        Dashboard["dashboard/ (Next.js 15)"]
-        Demo["demo-api/ (Example Service)"]
+    subgraph Apps
+        Dashboard[dashboard Next.js 15]
+        Demo[demo-api Example Service]
     end
 
     SDK --> Shared
